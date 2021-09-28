@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from unittest import TestCase, mock
 from pathlib import Path
-from solarnet_tools.submit_record import Record, DATE_KEYWORD
+from provider_tools.submit_record import Record, DATE_KEYWORD
 
 class TestSubmiRecord(TestCase):
 	'''Test the submit_record script'''
@@ -37,7 +37,7 @@ class TestSubmiRecord(TestCase):
 		
 		msg = 'When file_url is not specified explicitly, get_file_url must combine the file_path and the BASE_FILE_URL'
 		record = Record(self.test_file, file_path = 'test_file.fits')
-		with mock.patch('solarnet_tools.submit_record.BASE_FILE_URL', 'https://test.com/'):
+		with mock.patch('provider_tools.submit_record.BASE_FILE_URL', 'https://test.com/'):
 			self.assertEqual(record.get_file_url(), 'https://test.com/test_file.fits', msg = msg)
 	
 	def test_get_oid(self):
