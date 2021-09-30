@@ -4,17 +4,14 @@
 import argparse
 import logging
 from glob import iglob
-from itertools import chain
 from pathlib import Path
 from datetime import timedelta
-from pprint import pprint
+from pprint import pformat
 
 from records import MetadataRecord, DataLocationRecord
 from restful_api import RESTfulApi
 
 DATASET = 'SWAP level 1'
-USER_API_EMAIL = None
-USER_API_KEY = None
 
 class DataLocationRecord(DataLocationRecord):
 	# The base directory to build the default file_path
@@ -49,9 +46,8 @@ if __name__ == "__main__":
 	# Get the arguments
 	parser = argparse.ArgumentParser(description='Submit metadata from a FITS file to the SVO')
 	parser.add_argument('--debug', '-d', action='store_true', help='Set the logging level to debug')
-	parser.add_argument('fits_files', metavar = 'FITS FILE', nargs = '+', help='A FITS file to submit to the SVO')
-	parser.add_argument('--username', '-u', default=USER_API_EMAIL, help='The username (email) of the user owning the data')
-	parser.add_argument('--api-key', '-k', default=USER_API_KEY, help='The API key of the user owning the data')
+	parser.add_argument('fits_files', metavar = 'FITS FILE', help='A FITS file to submit to the SVO (also accept glob pattern)')
+	parser.add_argument('--auth-file', '-a', default='./.svo_auth', help='A file containing the username (email) and API key separated by a colon of the owner of the metadata')
 	parser.add_argument('--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead')
 
 	args = parser.parse_args()
@@ -62,8 +58,18 @@ if __name__ == "__main__":
 	else:
 		logging.basicConfig(level = logging.INFO, format = '%(levelname)-8s: %(message)s')
 	
+	if args.dry_run:
+		username, api_key = None, None
+	else:
+		try:
+			with open(args.auth_file, 'r') as file:
+				username, api_key = file.read().strip().split(':', 1)
+		except Exception as why:
+				logging.critical('Could not read auth from file "%s": %s', args.auth_file, why)
+				raise
+	
 	try:
-		api = RESTfulApi(DATASET, args.username, args.api_key)
+		api = RESTfulApi(DATASET, username, api_key)
 	except Exception as why:
 		logging.critical('Could not create api for dataset "%s": %s', DATASET, why)
 		raise
@@ -74,9 +80,7 @@ if __name__ == "__main__":
 		logging.critical('Could not retrieve keywords for dataset "%s": %s', DATASET, why)
 		raise
 	
-	fits_files = chain.from_iterable(iglob(fits_files) for fits_files in args.fits_files)
-	
-	for fits_file in fits_files:
+	for fits_file in iglob(args.fits_files, recursive = True):
 		
 		try:
 			record = MetadataRecord(fits_file = fits_file, keywords = keywords)
@@ -95,7 +99,7 @@ if __name__ == "__main__":
 		metadata['data_location'] = data_location
 		
 		if args.dry_run:
-			pprint(metadata, indent = 2)
+			logging.info('Metadata record for FITS file "%s" :\n%s', fits_file, pformat(metadata, indent = 2, width = 200))
 		else:
 			try:
 				result = api.create_metadata(metadata)
