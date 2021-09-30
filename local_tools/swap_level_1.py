@@ -3,10 +3,12 @@
 
 import argparse
 import logging
+import os
 from glob import iglob
 from pathlib import Path
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pprint import pformat
+from dateutil.parser import parse, ParserError
 
 from records import MetadataRecord, DataLocationRecord
 from restful_api import RESTfulApi
@@ -19,10 +21,6 @@ class DataLocationRecord(DataLocationRecord):
 	
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = 'http://proba2.oma.be/swap/data/bsd/'
-	
-	def get_thumbnail_url(self):
-		'''Return the proper URL for the thumbnail'''
-		return 'http://proba2.oma.be/swap/data/qlviewer/%s/%s' % (self.metadata['date_obs'].strftime('%Y/%m/%d'), Path(self.metadata['file_tmr']).with_suffix('.png'))
 
 
 class MetadataRecord(MetadataRecord):
@@ -49,7 +47,8 @@ if __name__ == "__main__":
 	parser.add_argument('fits_files', metavar = 'FITS FILE', help='A FITS file to submit to the SVO (also accept glob pattern)')
 	parser.add_argument('--auth-file', '-a', default='./.svo_auth', help='A file containing the username (email) and API key separated by a colon of the owner of the metadata')
 	parser.add_argument('--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead')
-
+	parser.add_argument('--min-modif-time', '-m', help='Only submit file if the modification time is after that date')
+	
 	args = parser.parse_args()
 	
 	# Setup the logging
@@ -57,6 +56,17 @@ if __name__ == "__main__":
 		logging.basicConfig(level = logging.DEBUG, format = '%(levelname)-8s: %(funcName)s %(message)s')
 	else:
 		logging.basicConfig(level = logging.INFO, format = '%(levelname)-8s: %(message)s')
+	
+	if args.min_modif_time:
+		try:
+			min_modif_time = parse(args.min_modif_time, default = datetime(2000, 1, 1))
+		except ParserError as why:
+			logging.critical('Parameter min-modif-time is not a valid date: %s', why)
+			raise
+		else:
+			min_modif_time = min_modif_time.timestamp()
+	else:
+		min_modif_time = None
 	
 	if args.dry_run:
 		username, api_key = None, None
@@ -81,6 +91,16 @@ if __name__ == "__main__":
 		raise
 	
 	for fits_file in iglob(args.fits_files, recursive = True):
+		if min_modif_time and os.path.getmtime(fits_file) < min_modif_time:
+			logging.info('Skipping FITS file "%s": file modif time earlier than specified min')
+			continue
+		
+		try:
+			record = DataLocationRecord(api.dataset['resource_uri'], fits_file = fits_file)
+			data_location = record.get_data_location()
+		except Exception as why:
+			logging.critical('Could not extract data location for FITS file "%s": %s', fits_file, why)
+			continue
 		
 		try:
 			record = MetadataRecord(fits_file = fits_file, keywords = keywords)
@@ -89,13 +109,8 @@ if __name__ == "__main__":
 			logging.critical('Could not extract metadata for FITS file "%s": %s', fits_file, why)
 			continue
 		
-		try:
-			record = DataLocationRecord(api.dataset['resource_uri'], fits_file = fits_file, metadata = metadata)
-			data_location = record.get_data_location()
-		except Exception as why:
-			logging.critical('Could not extract data location for FITS file "%s": %s', fits_file, why)
-			continue
-		
+		# The thumbnail URL depends on the metadata
+		data_location['thumbnail_url'] = 'http://proba2.oma.be/swap/data/qlviewer/%s/%s' % (metadata['date_obs'].strftime('%Y/%m/%d'), Path(metadata['file_tmr']).with_suffix('.png'))
 		metadata['data_location'] = data_location
 		
 		if args.dry_run:

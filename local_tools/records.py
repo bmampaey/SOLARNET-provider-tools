@@ -99,7 +99,7 @@ class DataLocationRecord:
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = None
 	
-	def __init__(self, dataset, fits_file = None, file_url = None, file_size = None, file_path = None, thumbnail_url = None, offline = False, metadata = None):
+	def __init__(self, dataset, fits_file = None, file_url = None, file_size = None, file_path = None, thumbnail_url = None, offline = False):
 		self.dataset = dataset
 		self.fits_file = fits_file
 		self.file_url = file_url
@@ -107,7 +107,6 @@ class DataLocationRecord:
 		self.file_path = file_path
 		self.thumbnail_url = thumbnail_url
 		self.offline = offline
-		self.metadata = metadata
 	
 	def get_file_url(self):
 		'''Override to return the proper URL for the file'''
