@@ -13,14 +13,14 @@ from dateutil.parser import parse, ParserError
 from records import MetadataRecord, DataLocationRecord
 from restful_api import RESTfulApi
 
-DATASET = 'SWAP level 1'
+DATASET = 'LYRA level 2'
 
 class DataLocationRecord(DataLocationRecord):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/proba2/swap/bsd/'
+	BASE_FILE_DIRECTORY = '/data/proba2/lyra/bsd/'
 	
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'http://proba2.oma.be/swap/data/bsd/'
+	BASE_FILE_URL = 'http://proba2.oma.be/lyra/data/bsd/'
 
 
 class MetadataRecord(MetadataRecord):
@@ -28,15 +28,12 @@ class MetadataRecord(MetadataRecord):
 	def get_field_date_beg(self):
 		return self.get_field_value('date_obs')
 	
-	def get_field_date_end(self):
-		return self.get_field_value('date_obs') + timedelta(seconds=self.get_field_value('exptime'))
-	
-	# TODO is there a better value for this
+	# Taken from the instrument description
 	def get_field_wavemin(self):
-		return self.get_field_value('wavelnth') / 10.0
+		return 6
 	
 	def get_field_wavemax(self):
-		return self.get_field_value('wavelnth') / 10.0
+		return 222
 
 
 if __name__ == "__main__":
@@ -110,7 +107,7 @@ if __name__ == "__main__":
 			continue
 		
 		# The thumbnail URL depends on the metadata
-		data_location['thumbnail_url'] = 'http://proba2.oma.be/swap/data/qlviewer/%s/%s' % (metadata['date_obs'].strftime('%Y/%m/%d'), Path(metadata['file_tmr']).with_suffix('.png'))
+		data_location['thumbnail_url'] = 'https://proba2.sidc.be/lyra/data/Level4calibrated/LyraL4C%s.png' % metadata['date_obs'].strftime('%Y%m%d')
 		metadata['data_location'] = data_location
 		
 		if args.dry_run:
