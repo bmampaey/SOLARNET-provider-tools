@@ -10,10 +10,9 @@ from datetime import datetime, timedelta
 from pprint import pformat
 from dateutil.parser import parse, ParserError
 
-from records import MetadataRecord, DataLocationRecord
-from restful_api import RESTfulApi
+from api import MetadataRecord, DataLocationRecord, RESTfulApi
 
-DATASET = 'LYRA level 2'
+DATASET = 'LYRA level 3'
 
 class DataLocationRecord(DataLocationRecord):
 	# The base directory to build the default file_path

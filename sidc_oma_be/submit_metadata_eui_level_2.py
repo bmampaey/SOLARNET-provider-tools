@@ -10,8 +10,7 @@ from datetime import datetime, timedelta
 from pprint import pformat
 from dateutil.parser import parse, ParserError
 
-from records import MetadataRecord, DataLocationRecord
-from restful_api import RESTfulApi
+from api import MetadataRecord, DataLocationRecord, RESTfulApi
 
 DATASET = 'EUI level 2'
 

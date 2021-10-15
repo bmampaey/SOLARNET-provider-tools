@@ -44,6 +44,27 @@ class RESTfulApi:
 			raise RuntimeError('Could not create metadata for dataset "%s": %s' % (self.dataset['name'], why.response.text if hasattr(why, 'response') else why)) from why
 		return result
 	
+	def iter_metadata(self, **filters):
+		'''Return an iterator of metadata records corresponding to the filters'''
+		limit = 100
+		offset = 0
+		carry_on = True
+		
+		while carry_on:
+			
+			import ipdb; ipdb.set_trace()
+			try:
+				result = self.metadata_resource.get(**filters, limit=limit, offset=offset)
+			except Exception as why:
+				raise RuntimeError('Could not retrieve metadata %s for dataset "%s": %s' % (self.dataset['name'], why.response.text if hasattr(why, 'response') else why)) from why
+			else:
+				if result['meta']['next']:
+					offset += limit
+				else:
+					carry_on = False
+				for object in result['objects']:
+					yield object
+	
 	def update_metadata(self, oid, metadata):
 		'''Update an existing metadata record for the dataset'''
 		try:
@@ -68,6 +89,7 @@ class RESTfulApi:
 		except Exception as why:
 			raise RuntimeError('Could not create data location for dataset "%s": %s' % (self.dataset['name'], why.response.text if hasattr(why, 'response') else why)) from why
 		return result
+
 
 class DateTimeEncoder(json.JSONEncoder):
 	def default(self, o):

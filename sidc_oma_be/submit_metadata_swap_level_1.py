@@ -10,44 +10,33 @@ from datetime import datetime, timedelta
 from pprint import pformat
 from dateutil.parser import parse, ParserError
 
-from records import MetadataRecord, DataLocationRecord
-from restful_api import RESTfulApi
+from api import MetadataRecord, DataLocationRecord, RESTfulApi
 
-DATASET = 'EUI level 1'
+DATASET = 'SWAP level 1'
 
 class DataLocationRecord(DataLocationRecord):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/EUI/managed/releases/202107_release_3.0/L1/'
+	BASE_FILE_DIRECTORY = '/data/proba2/swap/bsd/'
 	
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'https://wwwbis.sidc.be/EUI/data/releases/202107_release_3.0/L1/'
-	
-	BASE_THUMBNAIL_URL = 'https://wwwbis.sidc.be/EUI/data/releases/202107_release_3.0/L3/'
-	
-	def get_thumbnail_url(self):
-		'''Override to return the proper URL for the thumbnail'''
-		# The thumbnail URL is constructed from the file_path but with a jp2 extension
-		file_path = Path(self.get_file_path())
-		file_path = file_path.with_name('solo_L3_' + file_path.name[8:].rsplit('_', 1)[0] + '_V01.jp2')
-		return self.BASE_THUMBNAIL_URL + str(file_path)
+	BASE_FILE_URL = 'http://proba2.oma.be/swap/data/bsd/'
+
 
 class MetadataRecord(MetadataRecord):
 	
-	def get_field_date_end(self):
-		return self.get_field_value('date_beg') + timedelta(seconds=self.get_field_value('xposure'))
+	def get_field_date_beg(self):
+		return self.get_field_value('date_obs')
 	
+	def get_field_date_end(self):
+		return self.get_field_value('date_obs') + timedelta(seconds=self.get_field_value('exptime'))
+	
+	# TODO is there a better value for this
 	def get_field_wavemin(self):
-		return float(self.fits_header['WAVEMIN']) / 10.0
+		return self.get_field_value('wavelnth') / 10.0
 	
 	def get_field_wavemax(self):
-		return float(self.fits_header['WAVEMAX']) / 10.0
-	
-	def get_field_oid(self):
-		'''Return the observation id (oid) for the record. Override to adapt to the desired behavior'''
-		if self.oid:
-			return self.oid
-		else:
-			return self.get_field_value('filename').rsplit('_', 2)[1]
+		return self.get_field_value('wavelnth') / 10.0
+
 
 if __name__ == "__main__":
 
@@ -119,6 +108,8 @@ if __name__ == "__main__":
 			logging.critical('Could not extract metadata for FITS file "%s": %s', fits_file, why)
 			continue
 		
+		# The thumbnail URL depends on the metadata
+		data_location['thumbnail_url'] = 'http://proba2.oma.be/swap/data/qlviewer/%s/%s' % (metadata['date_obs'].strftime('%Y/%m/%d'), Path(metadata['file_tmr']).with_suffix('.png'))
 		metadata['data_location'] = data_location
 		
 		if args.dry_run:
