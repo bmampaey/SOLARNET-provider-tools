@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import timedelta
 
 # HACK to make sure the provider_tools package is findable
-sys.path.append("..")
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from provider_tools import MetadataFromFitsFile, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
 
 
