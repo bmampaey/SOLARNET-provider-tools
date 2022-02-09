@@ -30,7 +30,7 @@ class KeywordInspector:
 	# Units are usually specified at the beginning of the comment between brackets
 	UNIT_PATTERN = re.compile(r'\s*\[\s*(?P<unit>[^\]]+)\s*\](?P<comment>.*)\s*')
 	
-	def __init__(self, fits_files, hdu, exclude_keywords = [], backup_file_path = None):
+	def __init__(self, fits_files, hdu, exclude_keywords = [], backup_file_path = None, force_interactive = False):
 		
 		self.fits_files = fits_files
 		self.hdu = hdu
@@ -43,7 +43,7 @@ class KeywordInspector:
 		self.processed_fits_files = []
 		
 		self.log = logging.getLogger('keyword inspector')
-		self.force_interactive = False
+		self.force_interactive = force_interactive
 	
 	def process_fits_files(self):
 		'''Inspect all the FITS files and extract the keywords, their value and comment'''
@@ -120,6 +120,10 @@ class KeywordInspector:
 			keyword_types[keyword_type][value] = count
 		
 		if len(keyword_types) > 1 or self.force_interactive:
+			# Add the missing types to the choices
+			for keyword_type in self.KEYWORD_TYPE_NAMES.values():
+				if keyword_type not in keyword_types:
+					keyword_types[keyword_type][None] = 0
 			keyword_type = self.resolve_ambiguity(keyword, 'type', keyword_types)
 		else:
 			keyword_type = keyword_types.popitem()[0]
@@ -167,12 +171,12 @@ class KeywordInspector:
 		if len(keyword_units) > 1 or self.force_interactive:
 			# Make sure that None is an option
 			keyword_units[None]
-			keyword_unit = self.resolve_ambiguity(keyword, 'unit', keyword_units)
+			keyword_unit = self.resolve_ambiguity(keyword, 'unit', keyword_units, manual_input = True)
 		else:
 			keyword_unit = keyword_units.popitem()[0]
 		
 		if len(keyword_descriptions) > 1 or self.force_interactive:
-			keyword_description = self.resolve_ambiguity(keyword, 'description', keyword_descriptions)
+			keyword_description = self.resolve_ambiguity(keyword, 'description', keyword_descriptions, manual_input = True)
 		else:
 			keyword_description = keyword_descriptions.popitem()[0]
 		
@@ -189,7 +193,7 @@ class KeywordInspector:
 			self.log.debug('Unit "%s" found in comment %s', match['unit'], comment)
 			return match['unit'].strip(), match['comment'].strip()
 	
-	def resolve_ambiguity(self, keyword, subject, values):
+	def resolve_ambiguity(self, keyword, subject, values, manual_input = False):
 		'''Resolve an ambiguity between different values by asking the user'''
 		
 		# Sort the values by the most common ones
@@ -199,17 +203,21 @@ class KeywordInspector:
 		print('Multiple', subject , 'found for keyword', keyword)
 		for i, (count, option, examples) in enumerate(options):
 			print('[%d] %s (%d occurences) e.g. %s' % (i, option, count, examples))
+		if manual_input:
+			print('[M] manual input')
 		
-		selection = None
-		while selection is None:
-			selection = input('Please select option number: ')
+		value = None
+		
+		while value is None:
+			selection = input('Please enter one of the options between [] or enter for first one: ') or '0'
 			if selection.isdecimal() and int(selection) < len(options):
-				selection = int(selection)
+				value = options[int(selection)][1]
+			elif manual_input and selection == 'M':
+				value = input('Please enter the %s:' % subject)
 			else:
 				print('Invalid selection', selection)
-				selection = None
 		
-		return options[selection][1]
+		return value
 	
 	def get_keyword_name(self, keyword):
 		'''Convert a keyword into a SVO compliant keyword name'''
@@ -270,6 +278,7 @@ if __name__ == "__main__":
 	parser.add_argument('--output', '-o', default = 'keywords_definitions.json', help = 'Path to the output JSON file with the keywords definitions')
 	parser.add_argument('--exclude', '-E', metavar = 'KEYWORD', default = [], action = 'append', help = 'Keywords to exclude, can be specified multiple times')
 	parser.add_argument('--backup', '-b', metavar = 'BACKUPFILE', help = 'Path to a backup file where the progress will be saved so that in case of an error, it is possible to start where it had failed')
+	parser.add_argument('--force-interactive', '-i', action = 'store_true', help = 'Always ask the user for each keyword even if there is no ambiguity')
 	parser.add_argument('--debug', '-d', action = 'store_true', help = 'Set the logging level to debug')
 	
 	args = parser.parse_args()
@@ -290,7 +299,7 @@ if __name__ == "__main__":
 		hdu = args.hdu
 	
 	# Process the fits files and write the keyword info to the output file
-	keyword_inspector = KeywordInspector(args.fits_files, hdu = hdu, exclude_keywords = args.exclude, backup_file_path = args.backup)
+	keyword_inspector = KeywordInspector(args.fits_files, hdu = hdu, exclude_keywords = args.exclude, backup_file_path = args.backup, force_interactive = args.force_interactive)
 	
 	try:
 		keyword_inspector.process_fits_files()
