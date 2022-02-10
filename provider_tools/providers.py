@@ -5,7 +5,6 @@ from .restful_api import RESTfulApi
 from .metadata import MetadataFromFitsFile
 from .data_location import DataLocationFromLocalFile
 
-
 __all__ = ['Provider', 'ProviderFromLocalFitsFile']
 
 class Provider:
@@ -37,7 +36,7 @@ class Provider:
 		try:
 			result = self.metadata_resource.get(oid = oid)
 		except Exception as why:
-			raise RuntimeError('Could not retrieve metadata for dataset "%s": %s' % (self.dataset['name'], why.response.text if hasattr(why, 'response') else why)) from why
+			raise RuntimeError('Could not retrieve metadata for dataset "%s":\n%s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
 		
 		return result['objects'][0] if result.get('objects', None) else None
 	
@@ -46,7 +45,7 @@ class Provider:
 		try:
 			result = self.api.data_location.get(dataset__name = self.dataset['name'], file_url = file_url, limit = 1)
 		except Exception as why:
-			raise RuntimeError('Could not retrieve data location for dataset "%s": %s' % (self.dataset['name'], why.response.text if hasattr(why, 'response') else why)) from why
+			raise RuntimeError('Could not retrieve data location for dataset "%s":\n%s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
 		
 		return result['objects'][0] if result.get('objects', None) else None
 	
@@ -55,7 +54,7 @@ class Provider:
 		try:
 			result = self.metadata_resource.post(resource_data)
 		except Exception as why:
-			raise RuntimeError('Could not create metadata for dataset "%s": %s' % (self.dataset['name'], why.response.text if hasattr(why, 'response') else why)) from why
+			raise RuntimeError('Could not create metadata for dataset "%s":\n%s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
 		return result
 	
 	def update(self, resource_data, oid = None):
@@ -69,7 +68,7 @@ class Provider:
 		try:
 			result = self.metadata_resource(oid).patch(resource_data)
 		except Exception as why:
-			raise RuntimeError('Could not update metadata %s for dataset "%s": %s' % (self.dataset['name'], oid, why.response.text if hasattr(why, 'response') else why)) from why
+			raise RuntimeError('Could not update metadata %s for dataset "%s":\n%s' % (self.dataset['name'], oid, self.api.exception_to_text(why))) from why
 		return result
 
 class ProviderFromLocalFitsFile(Provider):

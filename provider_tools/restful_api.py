@@ -1,6 +1,9 @@
 import json
+import yaml
 from datetime import datetime, date, time
+from http.client import HTTPConnection
 from slumber import API, serialize
+
 
 __all__ = ['RESTfulApi']
 
@@ -11,7 +14,7 @@ SVO_API_URL = 'https://solarnet.oma.be/service/api/svo'
 class RESTfulApi(API):
 	'''RESTful API interface for the SVO'''
 	
-	def __init__(self, username = None, api_key = None, auth_file = None):
+	def __init__(self, username = None, api_key = None, auth_file = None, debug = False):
 		# Get the username and API key from the auth file or the arguments
 		# The auth_file always takes precedence
 		if auth_file is not None:
@@ -29,6 +32,9 @@ class RESTfulApi(API):
 		serializer = serialize.Serializer(default = 'json', serializers = [JsonSerializer()])
 		
 		super().__init__(base_url = SVO_API_URL, auth = auth, serializer = serializer)
+		
+		if debug:
+			HTTPConnection.debuglevel = 1
 	
 	@classmethod
 	def parse_auth_file(cls, auth_file):
@@ -45,6 +51,20 @@ class RESTfulApi(API):
 			raise RuntimeError('Auth file "%s" does not have the correct format, i.e. username:api_key' % auth_file) from why
 		
 		return username, api_key
+	
+	@classmethod
+	def exception_to_text(cls, exception):
+		try:
+			return yaml.dump(exception.response.json())
+		except Exception:
+			pass
+		
+		try:
+			return exception.response.text
+		except Exception:
+			pass
+		
+		return str(exception)
 	
 	def __call__(self, resource_uri):
 		'''Returns a ressource by it's ressource URI'''

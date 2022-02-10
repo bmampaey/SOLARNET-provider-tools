@@ -69,7 +69,7 @@ if __name__ == "__main__":
 	logging.basicConfig(level = getattr(logging, args.verbose), format = '%(asctime)s %(levelname)-8s: %(message)s')
 	
 	try:
-		provider = Provider(RESTfulApi(auth_file = args.auth_file), DATASET)
+		provider = Provider(RESTfulApi(auth_file = args.auth_file, debug = args.verbose == 'DEBUG'), DATASET)
 	except Exception as why:
 		logging.critical('Could not create provider: %s', why)
 		raise
