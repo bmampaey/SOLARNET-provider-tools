@@ -88,7 +88,7 @@ class ProviderFromLocalFitsFile(Provider):
 		return resource_data
 	
 	def submit_new_metadata(self, fits_files, dry_run = False):
-		'''Create a new metadata and data_location resources from a FITS file'''
+		'''Create a new metadata and data_location resources from FITS files'''
 		
 		for fits_file in fits_files:
 			
