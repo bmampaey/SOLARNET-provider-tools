@@ -2,10 +2,10 @@ import logging
 from pprint import pformat
 
 from .restful_api import RESTfulApi
-from .metadata import MetadataFromFitsFile
-from .data_location import DataLocationFromLocalFile
+from .metadata import MetadataFromFitsFile, MetadataFromTapRecord
+from .data_location import DataLocationFromLocalFile, DataLocationFromTapRecord
 
-__all__ = ['Provider', 'ProviderFromLocalFitsFile']
+__all__ = ['Provider', 'ProviderFromLocalFitsFile', 'ProviderFromTapRecord']
 
 class Provider:
 	'''Class for data providers to interract with a dataset's metadata resource via the RESTful API'''
@@ -111,3 +111,43 @@ class ProviderFromLocalFitsFile(Provider):
 					logging.error('Could not create new metadata or data_location resource for FITS file "%s": %s', fits_file, why)
 				else:
 					logging.info('Created new metadata resource "%s" for FITS file "%s"', result['resource_uri'], fits_file)
+
+class ProviderFromTapRecord(Provider):
+	
+	METADATA_CLASS = MetadataFromTapRecord
+	
+	DATA_LOCATION_CLASS = DataLocationFromTapRecord
+	
+	def get_resource_data(self, record):
+		'''Extract the data for the metadata and data_location resource from a TAPRecord'''
+		metadata = self.METADATA_CLASS(record = record, keywords = self.keywords)
+		data_location = self.DATA_LOCATION_CLASS(record)
+		resource_data = metadata.get_resource_data()
+		resource_data['data_location'] = data_location.get_resource_data()
+		resource_data['data_location']['dataset'] = self.dataset['resource_uri']
+		return resource_data
+	
+	def submit_new_metadata(self, records, dry_run = False):
+		'''Create a new metadata and data_location resources a TAP service'''
+		
+		for record in records:
+			
+			logging.info('Creating metadata and data_location resource for record "%s"', record)
+			
+			try:
+				resource_data = self.get_resource_data(record)
+			except Exception as why:
+				logging.critical('Could not extract resource data for record "%s": %s', record, why)
+				raise
+			else:
+				logging.debug(pformat(resource_data, indent = 2, width = 200))
+			
+			if dry_run:
+				logging.info('Called with dry-run option, not submitting anything')
+			else:
+				try:
+					result = self.create(resource_data)
+				except Exception as why:
+					logging.error('Could not create new metadata or data_location resource for record "%s": %s', record, why)
+				else:
+					logging.info('Created new metadata resource "%s" for record "%s"', result['resource_uri'], record)

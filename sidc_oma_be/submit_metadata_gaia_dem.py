@@ -13,9 +13,9 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from provider_tools import MetadataFromTapRecord, DataLocationFromTapRecord, RESTfulApi, ProviderFromTapRecord, utils
 
 
-DATASET = 'EIT synoptic'
+DATASET = 'GAIA DEM'
 TAP_SERVICE_URL = 'http://idoc-dachs.ias.u-psud.fr/tap/'
-TABLE_NAME = 'eit_syn.epn_core'
+TABLE_NAME = 'gaia_dem.epn_core'
 
 
 class DataLocation(DataLocationFromTapRecord):
@@ -28,17 +28,20 @@ class DataLocation(DataLocationFromTapRecord):
 		else:
 			response = requests.head(self.get_file_url())
 			return response.headers['Content-Length']
+	
+	def get_thumbnail_url(self):
+		'''Override to return the proper URL for the thumbnail'''
+		return super().get_thumbnail_url()[:-6] + '1024.png'
 
 
 class Metadata(MetadataFromTapRecord):
 	
 	def get_field_oid(self):
 		'''Return the observation id (oid) for the resource. Override to adapt to the desired behavior'''
-		# The granule_uid contains a _fts suffix, so use the obs_id that is the same thing without the ugly suffix
 		if self.oid:
 			return self.oid
 		else:
-			return self.get_field_value('obs_id')
+			return '%s_%s' % (self.get_field_value('granule_gid'), self.get_field_value('date_beg').strftime('%Y%m%d%H%M%S'))
 
 
 class Provider(ProviderFromTapRecord):

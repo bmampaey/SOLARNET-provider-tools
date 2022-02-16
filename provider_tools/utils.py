@@ -41,9 +41,9 @@ def iter_tap_records(service_url, table_name, max_count = 1000, min_modification
 	logging.debug('Executing TAP query %s', query)
 	result = tap.search(service_url, query)
 	record_count = result.getvalue('record_count', 0)
+	logging.debug('Found %s records for table %s', record_count, table_name)
 	
 	query = 'SELECT TOP %s * FROM %s %s OFFSET %%s' % (max_count, table_name, where_clause)
-	
 	offset = 0
 	while record_count > 0:
 		logging.debug('Executing TAP query %s', query % offset)
