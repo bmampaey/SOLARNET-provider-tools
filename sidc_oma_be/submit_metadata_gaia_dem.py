@@ -23,11 +23,17 @@ class DataLocation(DataLocationFromTapRecord):
 	def get_file_size(self):
 		'''Override to return the correct size of file in bytes'''
 		# The access_estsize is not the correct file size, so get the actual file size by making a HEAD request on the file
+		# If the request fail, return 0 so that it is easy to find the failed ones and retry later
 		if self.file_size is not None:
 			return self.file_size
 		else:
-			response = requests.head(self.get_file_url())
-			return response.headers['Content-Length']
+			try:
+				response = requests.head(self.get_file_url())
+			except Exception as why:
+				logging.error('Could not retrieve size of file %s: %s', self.get_file_url(), why)
+				return 0
+			else:
+				return response.headers['Content-Length']
 	
 	def get_thumbnail_url(self):
 		'''Override to return the proper URL for the thumbnail'''

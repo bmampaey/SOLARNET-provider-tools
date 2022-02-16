@@ -98,19 +98,18 @@ class ProviderFromLocalFitsFile(Provider):
 				resource_data = self.get_resource_data(fits_file)
 			except Exception as why:
 				logging.critical('Could not extract resource data for FITS file "%s": %s', fits_file, why)
-				raise
 			else:
 				logging.debug(pformat(resource_data, indent = 2, width = 200))
-			
-			if dry_run:
-				logging.info('Called with dry-run option, not submitting anything')
-			else:
-				try:
-					result = self.create(resource_data)
-				except Exception as why:
-					logging.error('Could not create new metadata or data_location resource for FITS file "%s": %s', fits_file, why)
+				
+				if dry_run:
+					logging.info('Called with dry-run option, not submitting anything')
 				else:
-					logging.info('Created new metadata resource "%s" for FITS file "%s"', result['resource_uri'], fits_file)
+					try:
+						result = self.create(resource_data)
+					except Exception as why:
+						logging.error('Could not create new metadata or data_location resource for FITS file "%s": %s', fits_file, why)
+					else:
+						logging.info('Created new metadata resource "%s" for FITS file "%s"', result['resource_uri'], fits_file)
 
 class ProviderFromTapRecord(Provider):
 	
@@ -138,16 +137,15 @@ class ProviderFromTapRecord(Provider):
 				resource_data = self.get_resource_data(record)
 			except Exception as why:
 				logging.critical('Could not extract resource data for record "%s": %s', record, why)
-				raise
 			else:
 				logging.debug(pformat(resource_data, indent = 2, width = 200))
-			
-			if dry_run:
-				logging.info('Called with dry-run option, not submitting anything')
-			else:
-				try:
-					result = self.create(resource_data)
-				except Exception as why:
-					logging.error('Could not create new metadata or data_location resource for record "%s": %s', record, why)
+				
+				if dry_run:
+					logging.info('Called with dry-run option, not submitting anything')
 				else:
-					logging.info('Created new metadata resource "%s" for record "%s"', result['resource_uri'], record)
+					try:
+						result = self.create(resource_data)
+					except Exception as why:
+						logging.error('Could not create new metadata or data_location resource for record "%s": %s', record, why)
+					else:
+						logging.info('Created new metadata resource "%s" for record "%s"', result['resource_uri'], record)
