@@ -29,11 +29,10 @@ class DataLocation(DataLocationFromTapRecord):
 		else:
 			try:
 				response = requests.head(self.get_file_url())
+				return response.headers['Content-Length']
 			except Exception as why:
 				logging.error('Could not retrieve size of file %s: %s', self.get_file_url(), why)
 				return 0
-			else:
-				return response.headers['Content-Length']
 	
 	def get_thumbnail_url(self):
 		'''Override to return the proper URL for the thumbnail'''

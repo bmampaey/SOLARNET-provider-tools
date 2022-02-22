@@ -30,30 +30,41 @@ def iter_files(file_path_globs, min_modification_time = None):
 				yield file_path
 
 
-def iter_tap_records(service_url, table_name, max_count = 1000, min_modification_time = None):
+def iter_tap_records(service_url, table_name, max_count = 1000, min_modification_time = None, exclude_granule_uid = []):
 	'''Accept a service URL and a table name and return the records in the table'''
 	
+	# If the min_modification_time, add a WHERE clause to exclude older records
 	where_clause = ''
 	if min_modification_time is not None:
 		where_clause += ' WHERE modification_date >= \'%s\'' % min_modification_time.isoformat()
 	
+	# Get the total number of records to process
 	query = 'SELECT count(*) AS record_count FROM %s %s' % (table_name, where_clause)
 	logging.debug('Executing TAP query %s', query)
 	result = tap.search(service_url, query)
 	record_count = result.getvalue('record_count', 0)
-	logging.debug('Found %s records for table %s', record_count, table_name)
+	logging.info('Found %s records for table %s', record_count, table_name)
 	
-	query = 'SELECT TOP %s * FROM %s %s OFFSET %%s' % (max_count, table_name, where_clause)
+	# Get the records by batch of max_count until there are no more records to process
+	query = 'SELECT TOP %s * FROM %s %s ORDER BY granule_uid ASC OFFSET %%s' % (max_count, table_name, where_clause)
 	offset = 0
+	
 	while record_count > 0:
 		logging.debug('Executing TAP query %s', query % offset)
-		result = tap.search(service_url, query % offset)
-		if not result:
-			logging.error('Expected %s TAP records but received none', min(record_count, max_count))
-		elif len(result) != min(record_count, max_count):
+		try:
+			result = tap.search(service_url, query % offset)
+		except Exception as why:
+			logging.warning('TAP query failed (%s), retrying!', why)
+			continue
+		
+		if len(result) != min(record_count, max_count):
 			logging.warning('Expected %s TAP records but received %s', min(record_count, max_count), len(result))
 		
 		record_count -= len(result)
 		offset += len(result)
+		
 		for record in result:
-			yield record
+			if record['granule_uid'] in exclude_granule_uid:
+				logging.info('Record with granule_uid %s is in the exclude list, skipping!', record['granule_uid'])
+			else:
+				yield record
