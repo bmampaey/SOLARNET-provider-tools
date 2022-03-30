@@ -101,6 +101,11 @@ class ProviderFromLocalFitsFile(Provider):
 			else:
 				logging.debug(pformat(resource_data, indent = 2, width = 200))
 				
+				data_location = self.get_data_location(resource_data['data_location']['file_url'])
+				if data_location is not None:
+					logging.info('Data location for record %s already exists, reusing!', record)
+					resource_data['data_location'] = data_location['resource_uri']
+				
 				if dry_run:
 					logging.info('Called with dry-run option, not submitting anything')
 				else:
@@ -139,6 +144,11 @@ class ProviderFromTapRecord(Provider):
 				logging.critical('Could not extract resource data for record "%s": %s', record, why)
 			else:
 				logging.debug(pformat(resource_data, indent = 2, width = 200))
+				
+				data_location = self.get_data_location(resource_data['data_location']['file_url'])
+				if data_location is not None:
+					logging.info('Data location for record %s already exists, reusing!', record)
+					resource_data['data_location'] = data_location['resource_uri']
 				
 				if dry_run:
 					logging.info('Called with dry-run option, not submitting anything')
