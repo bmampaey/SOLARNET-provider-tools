@@ -40,9 +40,18 @@ def iter_tap_records(service_url, table_name, max_count = 1000, min_modification
 	
 	# Get the total number of records to process
 	query = 'SELECT count(*) AS record_count FROM %s %s' % (table_name, where_clause)
-	logging.debug('Executing TAP query %s', query)
-	result = tap.search(service_url, query)
-	record_count = result.getvalue('record_count', 0)
+	
+	record_count = None
+	while record_count is None:
+		logging.debug('Executing TAP query %s', query)
+		try:
+			result = tap.search(service_url, query)
+		except Exception as why:
+			logging.warning('TAP query failed (%s), retrying!', why)
+			continue
+		else:
+			record_count = result.getvalue('record_count', 0)
+	
 	logging.info('Found %s records for table %s', record_count, table_name)
 	
 	# Get the records by batch of max_count until there are no more records to process
