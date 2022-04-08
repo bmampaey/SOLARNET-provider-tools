@@ -103,7 +103,7 @@ class ProviderFromLocalFitsFile(Provider):
 				
 				data_location = self.get_data_location(resource_data['data_location']['file_url'])
 				if data_location is not None:
-					logging.info('Data location for record %s already exists, reusing!', record)
+					logging.info('Data location for FITS file %s already exists, reusing!', fits_file)
 					resource_data['data_location'] = data_location['resource_uri']
 				
 				if dry_run:
