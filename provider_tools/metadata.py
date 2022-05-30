@@ -17,9 +17,12 @@ class MetadataFromFitsFile:
 		'time (ISO 8601)': parse
 	}
 	
-	def __init__(self, fits_file = None, fits_hdu = 0, oid = None, keywords = []):
+	# The HDU to read the fits header from
+	DEFAULT_FITS_HDU = 0
+	
+	def __init__(self, fits_file = None, fits_hdu = None, oid = None, keywords = []):
 		self.fits_file = fits_file
-		self.fits_hdu = fits_hdu
+		self.fits_hdu = fits_hdu if fits_hdu is not None else self.DEFAULT_FITS_HDU
 		self.oid = oid
 		self.keywords = {keyword['name']: keyword for keyword in keywords}
 		self.fits_header = self.get_fits_header()

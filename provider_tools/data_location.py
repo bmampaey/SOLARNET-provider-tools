@@ -57,8 +57,8 @@ class DataLocationFromLocalFile:
 			file_path = self.file_path
 		elif self.local_file:
 			file_path = self.local_file
-			if self.BASE_FILE_DIRECTORY and os.path.realpath(file_path).startswith(self.BASE_FILE_DIRECTORY):
-				file_path = os.path.realpath(file_path)[len(self.BASE_FILE_DIRECTORY):]
+			if self.BASE_FILE_DIRECTORY and os.path.abspath(file_path).startswith(self.BASE_FILE_DIRECTORY):
+				file_path = os.path.abspath(file_path)[len(self.BASE_FILE_DIRECTORY):]
 		else:
 			raise ValueError('Either file_path or local_file must be set')
 		
