@@ -19,7 +19,7 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_FILE_DIRECTORY = '/data/soho-archive/eit/lz/'
 	
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'http://sidc.be/eitlz/'
+	BASE_FILE_URL = 'https://www.sidc.be/eitlz/'
 	
 	# The base thumbnail URL to build the default tumbnail_url, uses the image2thumbnail service of the SVO to convert JP2 to png
 	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/fits2thumbnail/?max_percentile=99.5&url='

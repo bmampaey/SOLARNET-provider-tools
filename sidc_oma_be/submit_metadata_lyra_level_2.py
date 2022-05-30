@@ -19,7 +19,7 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_FILE_DIRECTORY = '/data/proba2/lyra/bsd/'
 	
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'http://proba2.oma.be/lyra/data/bsd/'
+	BASE_FILE_URL = 'https://proba2.sidc.be/lyra/data/bsd/'
 
 
 class Metadata(MetadataFromFitsFile):

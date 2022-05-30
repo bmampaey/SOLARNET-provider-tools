@@ -19,14 +19,14 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_FILE_DIRECTORY = '/data/usetml/external/USET_imager/L1centered/USET_White_Light/'
 	
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'https://wwwbis.sidc.be/data/usetml/external/USET_imager/L1centered/USET_White_Light/'
+	BASE_FILE_URL = 'https://www.sidc.be/data/usetml/external/USET_imager/L1centered/USET_White_Light/'
 	
 	# The base thumbnail URL to build the default tumbnail_url, uses the fits2thumbnail service of the SVO to convert FITS to png
-	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/fits2thumbnail/?url=https://wwwbis.sidc.be/data/usetml/external/USET_imager/L1centered/USET_White_Light/'
+	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/fits2thumbnail/?url='
 	
 	def get_thumbnail_url(self):
 		'''Override to return the proper URL for the thumbnail'''
-		return self.BASE_THUMBNAIL_URL + self.get_file_path()
+		return self.BASE_THUMBNAIL_URL + self.get_file_url()
 
 
 class Metadata(MetadataFromFitsFile):

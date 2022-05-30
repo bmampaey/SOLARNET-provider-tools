@@ -19,7 +19,7 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_FILE_DIRECTORY = '/data/proba2/swap/bsd/'
 	
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'http://proba2.oma.be/swap/data/bsd/'
+	BASE_FILE_URL = 'https://proba2.sidc.be/swap/data/bsd/'
 
 
 class Metadata(MetadataFromFitsFile):
@@ -44,7 +44,7 @@ class Provider(ProviderFromLocalFitsFile):
 	
 	DATA_LOCATION_CLASS = DataLocation
 	
-	BASE_THUMBNAIL_URL = 'http://proba2.oma.be/swap/data/qlviewer/'
+	BASE_THUMBNAIL_URL = 'https://proba2.sidc.be/swap/data/qlviewer/'
 	
 	def get_resource_data(self, fits_file):
 		'''Extract the data for the metadata and data_location resource from a FITS file'''
