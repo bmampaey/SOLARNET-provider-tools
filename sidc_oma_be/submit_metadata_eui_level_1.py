@@ -16,38 +16,49 @@ DATASET = 'EUI level 1'
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/EUI/managed/releases/202107_release_3.0/L1/'
+	BASE_FILE_DIRECTORY = '/data/EUI/managed/L1/'
 	
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'https://www.sidc.be/EUI/data/releases/202107_release_3.0/L1/'
+	BASE_FILE_URL = 'https://www.sidc.be/EUI/data/L1/'
 
 	# The base directory to to check for the thumbnail file
-	BASE_THUMBNAIL_DIRECTORY = '/data/EUI/managed/releases/202107_release_3.0/L3/'
+	BASE_THUMBNAIL_DIRECTORY = '/data/EUI/managed/L3/'
 	
 	# The base thumbnail URL to build the default tumbnail_url, uses the image2thumbnail service of the SVO to convert JP2 to png
-	BASE_THUMBNAIL_URL = 'https://solarnet2.oma.be/service/image2thumbnail/?url=https://www.sidc.be/EUI/data/releases/202107_release_3.0/L3/'
+	BASE_THUMBNAIL_URL = 'https://solarnet2.oma.be/service/image2thumbnail/?url=https://www.sidc.be/EUI/data/L3/'
 	
 	def get_thumbnail_url(self):
 		'''Override to return the proper URL for the thumbnail'''
+		
 		# The thumbnail URL is constructed from the file_path but with a jp2 extension
 		file_path = Path(self.get_file_path())
-		file_path = file_path.with_name('solo_L3_' + file_path.name[8:].rsplit('_', 1)[0] + '_V01.jp2')
-		if Path(self.BASE_THUMBNAIL_DIRECTORY, file_path).is_file():
-			return self.BASE_THUMBNAIL_URL + str(file_path)
+		thumbnails = sorted(Path(self.BASE_THUMBNAIL_DIRECTORY, file_path.parent).glob('*' + '_'.join(file_path.name.split('_')[2:4]) + '*.jp2'), reverse = True)
+		
+		if thumbnails:
+			return self.BASE_THUMBNAIL_URL + str(thumbnails[0].relative_to(self.BASE_THUMBNAIL_DIRECTORY))
 		else:
 			return None
 
 
 class Metadata(MetadataFromFitsFile):
 	
+	# The HDU to read the fits header from (files are tiled compressed)
+	DEFAULT_FITS_HDU = 1
+	
 	def get_field_date_end(self):
 		return self.get_field_value('date_beg') + timedelta(seconds=self.get_field_value('xposure'))
 	
 	def get_field_wavemin(self):
-		return float(self.fits_header['WAVEMIN']) / 10.0
+		if 'WAVEMIN' in self.fits_header:
+			return float(self.fits_header['WAVEMIN']) / 10.0
+		else:
+			return None
 	
 	def get_field_wavemax(self):
-		return float(self.fits_header['WAVEMAX']) / 10.0
+		if 'WAVEMAX' in self.fits_header:
+			return float(self.fits_header['WAVEMAX']) / 10.0
+		else:
+			return None
 	
 	def get_field_oid(self):
 		'''Return the observation id (oid) for the record. Override to adapt to the desired behavior'''
