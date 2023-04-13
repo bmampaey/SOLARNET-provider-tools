@@ -2,10 +2,13 @@ import os
 import logging
 from glob import iglob
 from datetime import datetime
+from urllib.parse import urljoin, unquote, urlparse
 from dateutil.parser import parse, ParserError
 from pyvo.dal import tap
+import htmllistparse
 
-__all__ = ['parse_date_time_string', 'iter_files', 'iter_tap_records']
+
+__all__ = ['parse_date_time_string', 'iter_files', 'iter_urls', 'iter_tap_records']
 
 def parse_date_time_string(date_time_string, default = datetime(2000, 1, 1)):
 	'''Parse a date time like string and return a timestamp'''
@@ -29,6 +32,32 @@ def iter_files(file_path_globs, min_modification_time = None):
 				logging.info('Skipping FITS file "%s": file modification time earlier than specified min', file_path)
 			else:
 				yield file_path
+
+
+def iter_urls(base_urls, extension = '.fits', min_modification_time = None, timeout = 30):
+	'''Accept a list of base URLs and return the individuals file URLs'''
+	
+	for base_url in base_urls:
+		if urlparse(unquote(base_url)).path.endswith(extension):
+			yield base_url
+		else:
+			trash, listing = htmllistparse.fetch_listing(base_url, timeout=timeout)
+			
+			for file_entry in listing:
+				url = urljoin(base_url, file_entry.name)
+				
+				if file_entry.name.endswith(extension):
+					if min_modification_time is None or datetime(*file_entry.modified[:6]) >= min_modification_time:
+						yield url
+					else:
+						logging.info('Skipping URL "%s": file modification time earlier than specified min', url)
+				
+				elif file_entry.name.endswith('/'):
+					for url in iter_urls([url], extension, min_modification_time, timeout):
+						yield url
+				
+				else:
+					logging.debug('Skipping URL "%s": not a directory of a file with extension "%s"', url, extension)
 
 
 def iter_tap_records(service_url, table_name, max_count = 1000, min_modification_time = None, exclude_granule_uid = []):

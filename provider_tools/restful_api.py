@@ -54,17 +54,23 @@ class RESTfulApi(API):
 	
 	@classmethod
 	def exception_to_text(cls, exception):
-		try:
-			return yaml.dump(exception.response.json())
-		except Exception:
-			pass
+		text = str(exception)
 		
 		try:
-			return exception.response.text
+			text += '\n' +  yaml.dump(exception.response.json())
 		except Exception:
 			pass
+		else:
+			return text
 		
-		return str(exception)
+		try:
+			text += '\n' + exception.response.text
+		except Exception:
+			pass
+		else:
+			return text
+		
+		return text
 	
 	def __call__(self, resource_uri):
 		'''Returns a ressource by it's ressource URI'''

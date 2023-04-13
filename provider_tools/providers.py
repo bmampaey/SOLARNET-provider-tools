@@ -1,11 +1,10 @@
 import logging
 from pprint import pformat
 
-from .restful_api import RESTfulApi
 from .metadata import MetadataFromFitsFile, MetadataFromTapRecord
-from .data_location import DataLocationFromLocalFile, DataLocationFromTapRecord
+from .data_location import DataLocationFromLocalFile, DataLocationFromTapRecord, DataLocationFromUrl
 
-__all__ = ['Provider', 'ProviderFromLocalFitsFile', 'ProviderFromTapRecord']
+__all__ = ['Provider', 'ProviderFromLocalFitsFile', 'ProviderFromFitsUrl', 'ProviderFromTapRecord']
 
 class Provider:
 	'''Class for data providers to interract with a dataset's metadata resource via the RESTful API'''
@@ -36,7 +35,7 @@ class Provider:
 		try:
 			result = self.metadata_resource.get(oid = oid)
 		except Exception as why:
-			raise RuntimeError('Could not retrieve metadata for dataset "%s":\n%s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
+			raise RuntimeError('Could not retrieve metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
 		
 		return result['objects'][0] if result.get('objects', None) else None
 	
@@ -45,7 +44,7 @@ class Provider:
 		try:
 			result = self.api.data_location.get(dataset__name = self.dataset['name'], file_url = file_url, limit = 1)
 		except Exception as why:
-			raise RuntimeError('Could not retrieve data location for dataset "%s":\n%s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
+			raise RuntimeError('Could not retrieve data location for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
 		
 		return result['objects'][0] if result.get('objects', None) else None
 	
@@ -54,7 +53,7 @@ class Provider:
 		try:
 			result = self.metadata_resource.post(resource_data)
 		except Exception as why:
-			raise RuntimeError('Could not create metadata for dataset "%s":\n%s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
+			raise RuntimeError('Could not create metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(why))) from why
 		return result
 	
 	def update(self, resource_data, oid = None):
@@ -63,47 +62,47 @@ class Provider:
 		resource_data = resource_data.copy()
 		oid = resource_data.pop('oid', oid)
 		if not oid:
-			raise ValueError('"oid" is undefined: it must be present in the metadata dict or passed explicitly') from why
-		
+			raise ValueError('"oid" is undefined: it must be present in the resource_data dict or passed explicitly')
 		try:
 			result = self.metadata_resource(oid).patch(resource_data)
 		except Exception as why:
-			raise RuntimeError('Could not update metadata %s for dataset "%s":\n%s' % (self.dataset['name'], oid, self.api.exception_to_text(why))) from why
+			raise RuntimeError('Could not update metadata %s for dataset "%s": %s' % (self.dataset['name'], oid, self.api.exception_to_text(why))) from why
 		return result
 
+
 class ProviderFromLocalFitsFile(Provider):
-	'''Class to extract metadadata from FITS file and submit it to the SVO via the RESTful API'''
+	'''Class to extract metadadata from a FITS file and submit it to the SVO via the RESTful API'''
 	
 	METADATA_CLASS = MetadataFromFitsFile
 	
 	DATA_LOCATION_CLASS = DataLocationFromLocalFile
 
-	def get_resource_data(self, fits_file):
+	def get_resource_data(self, file_path):
 		'''Extract the data for the metadata and data_location resource from a local FITS file'''
-		metadata = self.METADATA_CLASS(fits_file = fits_file, keywords = self.keywords)
-		data_location = self.DATA_LOCATION_CLASS(fits_file)
+		metadata = self.METADATA_CLASS(fits_file = file_path, keywords = self.keywords)
+		data_location = self.DATA_LOCATION_CLASS(file_path)
 		resource_data = metadata.get_resource_data()
 		resource_data['data_location'] = data_location.get_resource_data()
 		resource_data['data_location']['dataset'] = self.dataset['resource_uri']
 		return resource_data
 	
-	def submit_new_metadata(self, fits_files, dry_run = False):
-		'''Create a new metadata and data_location resources from FITS files'''
+	def submit_new_metadata(self, file_paths, dry_run = False):
+		'''Create new metadata and data_location resources from local FITS files'''
 		
-		for fits_file in fits_files:
+		for file_path in file_paths:
 			
-			logging.info('Creating metadata and data_location resource for FITS file "%s"', fits_file)
+			logging.info('Creating metadata and data_location resource for file "%s"', file_path)
 			
 			try:
-				resource_data = self.get_resource_data(fits_file)
+				resource_data = self.get_resource_data(file_path)
 			except Exception as why:
-				logging.critical('Could not extract resource data for FITS file "%s": %s', fits_file, why)
+				logging.critical('Could not extract resource data for file "%s": %s', file_path, why)
 			else:
 				logging.debug(pformat(resource_data, indent = 2, width = 200))
 				
 				data_location = self.get_data_location(resource_data['data_location']['file_url'])
 				if data_location is not None:
-					logging.info('Data location for FITS file %s already exists, reusing!', fits_file)
+					logging.info('Data location for file %s already exists, reusing!', file_path)
 					resource_data['data_location'] = data_location['resource_uri']
 				
 				if dry_run:
@@ -112,12 +111,60 @@ class ProviderFromLocalFitsFile(Provider):
 					try:
 						result = self.create(resource_data)
 					except Exception as why:
-						logging.error('Could not create new metadata or data_location resource for FITS file "%s": %s', fits_file, why)
+						logging.error('Could not create new metadata or data_location resource for file "%s": %s', file_path, why)
 					else:
-						logging.info('Created new metadata resource "%s" for FITS file "%s"', result['resource_uri'], fits_file)
+						logging.info('Created new metadata resource "%s" for file "%s"', result['resource_uri'], file_path)
+
+
+class ProviderFromFitsUrl(Provider):
+	'''Class to extract metadadata from a URL and submit it to the SVO via the RESTful API'''
+	
+	METADATA_CLASS = MetadataFromFitsFile
+	
+	DATA_LOCATION_CLASS = DataLocationFromUrl
+
+	def get_resource_data(self, file_url):
+		'''Extract the data for the metadata and data_location resource from a FITS file URL'''
+		metadata = self.METADATA_CLASS(fits_file = file_url, keywords = self.keywords)
+		data_location = self.DATA_LOCATION_CLASS(file_url)
+		resource_data = metadata.get_resource_data()
+		resource_data['data_location'] = data_location.get_resource_data()
+		resource_data['data_location']['dataset'] = self.dataset['resource_uri']
+		return resource_data
+	
+	def submit_new_metadata(self, file_urls, dry_run = False):
+		'''Create a new metadata and data_location resources from FITS files'''
+		
+		for file_url in file_urls:
+			
+			logging.info('Creating metadata and data_location resource for URL "%s"', file_url)
+			
+			try:
+				resource_data = self.get_resource_data(file_url)
+			except Exception as why:
+				logging.critical('Could not extract resource data for URL "%s": %s', file_url, why)
+			else:
+				logging.debug(pformat(resource_data, indent = 2, width = 200))
+				
+				data_location = self.get_data_location(resource_data['data_location']['file_url'])
+				if data_location is not None:
+					logging.info('Data location for URL %s already exists, reusing!', file_url)
+					resource_data['data_location'] = data_location['resource_uri']
+				
+				if dry_run:
+					logging.info('Called with dry-run option, not submitting anything')
+				else:
+					try:
+						result = self.create(resource_data)
+					except Exception as why:
+						logging.error('Could not create new metadata or data_location resource for URL "%s": %s', file_url, why)
+					else:
+						logging.info('Created new metadata resource "%s" for URL "%s"', result['resource_uri'], file_url)
+
 
 class ProviderFromTapRecord(Provider):
-	
+	'''Class to extract metadadata from a TAP record and submit it to the SVO via the RESTful API'''
+
 	METADATA_CLASS = MetadataFromTapRecord
 	
 	DATA_LOCATION_CLASS = DataLocationFromTapRecord
@@ -132,7 +179,7 @@ class ProviderFromTapRecord(Provider):
 		return resource_data
 	
 	def submit_new_metadata(self, records, dry_run = False):
-		'''Create a new metadata and data_location resources a TAP service'''
+		'''Create new metadata and data_location resources from TAP records'''
 		
 		for record in records:
 			
