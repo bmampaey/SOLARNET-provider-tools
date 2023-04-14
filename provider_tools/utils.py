@@ -1,14 +1,19 @@
 import os
 import logging
+import io
+import zlib
+import requests
 from glob import iglob
 from datetime import datetime
 from urllib.parse import urljoin, unquote, urlparse
 from dateutil.parser import parse, ParserError
 from pyvo.dal import tap
+from astropy.io import fits
 import htmllistparse
 
 
-__all__ = ['parse_date_time_string', 'iter_files', 'iter_urls', 'iter_tap_records']
+
+__all__ = ['parse_date_time_string', 'iter_files', 'iter_urls', 'iter_tap_records', 'get_fits_header_from_local_file', 'get_fits_header_from_url']
 
 def parse_date_time_string(date_time_string, default = datetime(2000, 1, 1)):
 	'''Parse a date time like string and return a timestamp'''
@@ -38,9 +43,12 @@ def iter_urls(base_urls, extension = '.fits', min_modification_time = None, time
 	'''Accept a list of base URLs and return the individuals file URLs'''
 	
 	for base_url in base_urls:
-		if urlparse(unquote(base_url)).path.endswith(extension):
+		url_path = urlparse(unquote(base_url)).path
+		
+		if url_path.endswith(extension):
 			yield base_url
-		else:
+		
+		elif url_path.endswith('/'):
 			trash, listing = htmllistparse.fetch_listing(base_url, timeout=timeout)
 			
 			for file_entry in listing:
@@ -107,3 +115,52 @@ def iter_tap_records(service_url, table_name, max_count = 1000, min_modification
 				logging.info('Record with granule_uid %s is in the exclude list, skipping!', record['granule_uid'])
 			else:
 				yield record
+
+
+def get_fits_header_from_local_file(file_path, hdu_name_or_index = 0):
+	'''Return the header of a local FITS file'''
+
+	with fits.open(file_path) as hdus:
+		return hdus[hdu_name_or_index].header
+
+
+def get_fits_header_from_url(file_url, header_size = 2880, header_offset = 0, zipped = False, webserver_auth = None):
+	'''Return the header of a FITS file URL'''
+	
+	# If FITS file is zipped, the response content must be decompressed before writing it to the pseudo file
+	if zipped:
+		decompressor = zlib.decompressobj(zlib.MAX_WBITS | 16)
+	
+	# We download the file by chunk, by specifying the desired range, until we have the complete FITS header
+	range_start = header_offset
+	range_end = header_offset + header_size
+	
+	# We store the response in a pseudo file for the fits library
+	fits_file = io.BytesIO()
+	
+	while True:
+		logging.debug('Reading file %s from %s to %s', file_url, range_start, range_end - 1)
+		# We set the desired range in the HTTP header, note that both bounds are inclusive
+		response = requests.get(file_url, headers = {'Range': 'Bytes=%s-%s' % (range_start, range_end - 1)}, auth = webserver_auth)
+		
+		if zipped:
+			fits_file.write(decompressor.decompress(response.content))
+		else:
+			fits_file.write(response.content)
+		
+		# It is necessary to rewind the file to pass it to the fits library
+		fits_file.seek(0)
+		
+		# Try to read a full header from the pseudo file, if header is partial, an IOError will be raised
+		try:
+			fits_header = fits.Header.fromfile(fits_file)
+		except IOError:
+			# Header is partial, we need to read more from the file
+			# Per fits standard, fits file header size is always a multiple of 2880
+			range_start = range_end
+			range_end = range_start + 2880
+		else:
+			if range_end > (header_size + header_offset):
+				logging.warning('Header size of FITS file %s is %s (was set to %s), consider increasing the value of header_size', file_url, range_end - header_offset, header_size)
+			
+			return fits_header

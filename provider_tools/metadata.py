@@ -1,12 +1,12 @@
 import logging
 from math import isfinite
 from dateutil.parser import parse
-from astropy import io, units, time
+from astropy import units, time
 
-__all__ = ['MetadataFromFitsFile', 'MetadataFromTapRecord']
+__all__ = ['MetadataFromFitsHeader', 'MetadataFromTapRecord']
 
-class MetadataFromFitsFile:
-	'''Class to extract the metadata from a FITS file and generate the corresponding resource data for updating the SVO'''
+class MetadataFromFitsHeader:
+	'''Class to extract the metadata from a FITS header and generate the corresponding resource data for updating the SVO'''
 	
 	# Methods to convert the FITS keywords values to the proper SVO type
 	KEYWORD_VALUE_CONVERSION = {
@@ -17,15 +17,10 @@ class MetadataFromFitsFile:
 		'time (ISO 8601)': parse
 	}
 	
-	# The HDU to read the fits header from
-	DEFAULT_FITS_HDU = 0
-	
-	def __init__(self, fits_file = None, fits_hdu = None, oid = None, keywords = []):
-		self.fits_file = fits_file
-		self.fits_hdu = fits_hdu if fits_hdu is not None else self.DEFAULT_FITS_HDU
+	def __init__(self, fits_header, oid = None, keywords = []):
+		self.fits_header = fits_header
 		self.oid = oid
 		self.keywords = {keyword['name']: keyword for keyword in keywords}
-		self.fits_header = self.get_fits_header()
 	
 	def get_resource_data(self):
 		'''Return a dict of data for creating/updating a metadata resource'''
@@ -43,13 +38,6 @@ class MetadataFromFitsFile:
 				logging.debug('Field %s has value "%s"', name, resource_data[name])
 		
 		return resource_data
-	
-	def get_fits_header(self):
-		'''Return the FITS header. Override this method if you don't read the file from disk or an URL'''
-		
-		with io.fits.open(self.fits_file) as hdus:
-			fits_header = hdus[self.fits_hdu].header
-		return fits_header
 	
 	def get_field_value(self, field_name):
 		'''Extract the metadata field value from the FITS header using the keyword definition'''

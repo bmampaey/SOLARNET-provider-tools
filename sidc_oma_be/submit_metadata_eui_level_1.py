@@ -9,7 +9,7 @@ from datetime import timedelta
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import MetadataFromFitsFile, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
+from provider_tools import MetadataFromFitsHeader, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
 
 
 DATASET = 'EUI level 1'
@@ -40,10 +40,7 @@ class DataLocation(DataLocationFromLocalFile):
 			return None
 
 
-class Metadata(MetadataFromFitsFile):
-	
-	# The HDU to read the fits header from (files are tiled compressed)
-	DEFAULT_FITS_HDU = 1
+class Metadata(MetadataFromFitsHeader):
 	
 	def get_field_date_end(self):
 		return self.get_field_value('date_beg') + timedelta(seconds=self.get_field_value('xposure'))
@@ -70,6 +67,9 @@ class Metadata(MetadataFromFitsFile):
 
 class Provider(ProviderFromLocalFitsFile):
 	
+	# Files are tiled compressed, so the important header is in the second HDU
+	HDU_NAME_OR_INDEX = 1
+
 	METADATA_CLASS = Metadata
 	
 	DATA_LOCATION_CLASS = DataLocation

@@ -9,7 +9,7 @@ from datetime import timedelta
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import MetadataFromFitsFile, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
+from provider_tools import MetadataFromFitsHeader, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
 
 
 DATASET = 'EIT level 0'
@@ -29,34 +29,33 @@ class DataLocation(DataLocationFromLocalFile):
 		return self.BASE_THUMBNAIL_URL + self.get_file_url()
 
 
-class Metadata(MetadataFromFitsFile):
+class Metadata(MetadataFromFitsHeader):
 	
-	def get_fits_header(self):
-		'''Return the FITS header'''
+	def __init__(self, fits_header, oid = None, keywords = []):
+		
+		super().__init__(fits_header, oid, keywords)
 		
 		# EIT has additional keywords in comments in the form "COMMENT BLOCKS_HORZ = 1"
 		# so add these to the FITS header to simplify parsing
 		# but save the original FITS header value for fits_header metadata field
-		fits_header = super().get_fits_header()
+
+		self.fits_header_string = self.fits_header.tostring().strip()
 		
-		self.fits_header_string = fits_header.tostring().strip()
-		
-		for comment in fits_header['COMMENT']:
+		for comment in self.fits_header['COMMENT']:
 			try:
 				key, value = comment.split('=', 1)
 			except ValueError:
 				pass
 			else:
-				fits_header.setdefault(key.strip().replace(' ', '_'), value.strip().strip('\''))
+				self.fits_header.setdefault(key.strip().replace(' ', '_'), value.strip().strip('\''))
 		
-		return fits_header
 	
 	def get_field_fits_header(self):
 		'''Return the value of the fits_header metadata field'''
 		return self.fits_header_string
 	
 	def get_duration_from_fits_header(self, fits_keyword):
-		'''Parse a FITS keyword wich value is in the form "0.111 s" and return a floats'''
+		'''Parse a FITS keyword wich value is in the form "0.111 s" and return a float'''
 		try:
 			value = self.fits_header[fits_keyword]
 		except KeyError:

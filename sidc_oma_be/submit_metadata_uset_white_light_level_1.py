@@ -9,7 +9,7 @@ from datetime import timedelta
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import MetadataFromFitsFile, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
+from provider_tools import MetadataFromFitsHeader, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
 
 
 DATASET = 'USET White Light level 1'
@@ -29,7 +29,7 @@ class DataLocation(DataLocationFromLocalFile):
 		return self.BASE_THUMBNAIL_URL + self.get_file_url()
 
 
-class Metadata(MetadataFromFitsFile):
+class Metadata(MetadataFromFitsHeader):
 	
 	def get_field_date_end(self):
 		return self.get_field_value('date_beg') + timedelta(seconds=self.get_field_value('xposure'))

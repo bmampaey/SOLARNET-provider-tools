@@ -9,7 +9,7 @@ from datetime import timedelta
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import MetadataFromFitsFile, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
+from provider_tools import MetadataFromFitsHeader, DataLocationFromLocalFile, RESTfulApi, ProviderFromLocalFitsFile, utils
 
 
 DATASET = 'SWAP level 1'
@@ -22,7 +22,7 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_FILE_URL = 'https://proba2.sidc.be/swap/data/bsd/'
 
 
-class Metadata(MetadataFromFitsFile):
+class Metadata(MetadataFromFitsHeader):
 	
 	def get_field_date_beg(self):
 		return self.get_field_value('date_obs')
@@ -46,10 +46,10 @@ class Provider(ProviderFromLocalFitsFile):
 	
 	BASE_THUMBNAIL_URL = 'https://proba2.sidc.be/swap/data/qlviewer/'
 	
-	def get_resource_data(self, fits_file):
+	def get_resource_data(self, file_path):
 		'''Extract the data for the metadata and data_location resource from a FITS file'''
 		# The thumbnail URL depends on the metadata
-		resource_data = super().get_resource_data(fits_file)
+		resource_data = super().get_resource_data(file_path)
 		resource_data['data_location']['thumbnail_url'] = self.BASE_THUMBNAIL_URL + str(Path(resource_data['date_obs'].strftime('%Y/%m/%d'),  resource_data['file_tmr']).with_suffix('.png'))
 		return resource_data
 

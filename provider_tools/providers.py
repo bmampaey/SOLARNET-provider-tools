@@ -1,8 +1,9 @@
 import logging
 from pprint import pformat
 
-from .metadata import MetadataFromFitsFile, MetadataFromTapRecord
+from .metadata import MetadataFromFitsHeader, MetadataFromTapRecord
 from .data_location import DataLocationFromLocalFile, DataLocationFromTapRecord, DataLocationFromUrl
+from .utils import get_fits_header_from_local_file, get_fits_header_from_url
 
 __all__ = ['Provider', 'ProviderFromLocalFitsFile', 'ProviderFromFitsUrl', 'ProviderFromTapRecord']
 
@@ -73,13 +74,15 @@ class Provider:
 class ProviderFromLocalFitsFile(Provider):
 	'''Class to extract metadadata from a FITS file and submit it to the SVO via the RESTful API'''
 	
-	METADATA_CLASS = MetadataFromFitsFile
+	HDU_NAME_OR_INDEX = 0
+
+	METADATA_CLASS = MetadataFromFitsHeader
 	
 	DATA_LOCATION_CLASS = DataLocationFromLocalFile
 
 	def get_resource_data(self, file_path):
 		'''Extract the data for the metadata and data_location resource from a local FITS file'''
-		metadata = self.METADATA_CLASS(fits_file = file_path, keywords = self.keywords)
+		metadata = self.METADATA_CLASS(fits_header = get_fits_header_from_local_file(file_path, self.HDU_NAME_OR_INDEX), keywords = self.keywords)
 		data_location = self.DATA_LOCATION_CLASS(file_path)
 		resource_data = metadata.get_resource_data()
 		resource_data['data_location'] = data_location.get_resource_data()
@@ -119,13 +122,22 @@ class ProviderFromLocalFitsFile(Provider):
 class ProviderFromFitsUrl(Provider):
 	'''Class to extract metadadata from a URL and submit it to the SVO via the RESTful API'''
 	
-	METADATA_CLASS = MetadataFromFitsFile
+	# Must be a multiple of 2880
+	HEADER_SIZE = 2880
+	
+	HEADER_OFFSET = 0
+	
+	ZIPPED = False
+	
+	WEBSERVER_AUTH = None
+
+	METADATA_CLASS = MetadataFromFitsHeader
 	
 	DATA_LOCATION_CLASS = DataLocationFromUrl
 
 	def get_resource_data(self, file_url):
 		'''Extract the data for the metadata and data_location resource from a FITS file URL'''
-		metadata = self.METADATA_CLASS(fits_file = file_url, keywords = self.keywords)
+		metadata = self.METADATA_CLASS(fits_header = get_fits_header_from_url(file_url, self.HEADER_SIZE, self.HEADER_OFFSET, self.ZIPPED, self.WEBSERVER_AUTH), keywords = self.keywords)
 		data_location = self.DATA_LOCATION_CLASS(file_url)
 		resource_data = metadata.get_resource_data()
 		resource_data['data_location'] = data_location.get_resource_data()
