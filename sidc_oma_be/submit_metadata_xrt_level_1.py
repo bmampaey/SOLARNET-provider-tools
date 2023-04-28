@@ -34,6 +34,12 @@ class Metadata(MetadataFromFitsHeader):
 	
 	def get_field_wavemax(self):
 		return 33.5
+	
+	def get_field_oid(self):
+		if self.oid:
+			return self.oid
+		else:
+			return self.get_field_value('date_beg').strftime('%Y%m%d%H%M%S%f')[:-3]
 
 
 class Provider(ProviderFromFitsUrl):
