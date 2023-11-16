@@ -42,11 +42,6 @@ class DataLocation(DataLocationFromLocalFile):
 
 class Metadata(MetadataFromFitsHeader):
 	
-	def __init__(self, file_path, oid = None, keywords = []):
-		
-		# Get the FITS header from a local file
-		super().__init__(utils.get_fits_header_from_local_file(file_path, FITS_HDU), oid, keywords)
-	
 	def get_field_date_end(self):
 		return self.get_field_value('date_beg') + timedelta(seconds=self.get_field_value('xposure'))
 	

@@ -81,7 +81,7 @@ class KeywordInspector:
 		name = re.sub(r'[^a-zA-Z0-9_]', r'_', name)
 		# remove consecutive underscores
 		while name.find(r'__') >= 0:
-			name = new_name.replace(r'__', r'_')
+			name = name.replace(r'__', r'_')
 		# remove underscores at extremities
 		name = name.strip('_')
 		
