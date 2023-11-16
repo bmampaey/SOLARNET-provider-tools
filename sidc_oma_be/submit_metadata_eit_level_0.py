@@ -16,7 +16,7 @@ DATASET = 'EIT level 0'
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/soho-archive/eit/lz/'
+	BASE_FILE_PATH = '/data/soho-archive/eit/lz/'
 	
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = 'https://www.sidc.be/eitlz/'

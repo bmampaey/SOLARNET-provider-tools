@@ -16,7 +16,7 @@ DATASET = 'LYRA level 3'
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/proba2/lyra/bsd/'
+	BASE_FILE_PATH = '/data/proba2/lyra/bsd/'
 	
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = 'https://proba2.sidc.be/lyra/data/bsd/'

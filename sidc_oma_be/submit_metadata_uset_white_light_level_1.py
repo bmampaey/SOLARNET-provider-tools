@@ -16,7 +16,7 @@ DATASET = 'USET White Light level 1'
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/usetml/external/USET_imager/L1centered/USET_White_Light/'
+	BASE_FILE_PATH = '/data/usetml/external/USET_imager/L1centered/USET_White_Light/'
 	
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = 'https://www.sidc.be/data/usetml/external/USET_imager/L1centered/USET_White_Light/'

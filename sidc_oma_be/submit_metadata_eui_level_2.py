@@ -16,7 +16,7 @@ DATASET = 'EUI level 2'
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/EUI/managed/L2/'
+	BASE_FILE_PATH = '/data/EUI/managed/L2/'
 	
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = 'https://www.sidc.be/EUI/data/L2/'

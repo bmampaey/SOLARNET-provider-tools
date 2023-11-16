@@ -16,7 +16,7 @@ DATASET = 'EUVI level 0'
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/secchi-archive/lz/L0/'
+	BASE_FILE_PATH = '/data/secchi-archive/lz/L0/'
 	
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = 'https://www.sidc.be/secchi-archive/lz/L0/'

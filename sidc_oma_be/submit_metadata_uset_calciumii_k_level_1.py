@@ -16,7 +16,7 @@ DATASET = 'USET CalciumII-K level 1'
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_DIRECTORY = '/data/usetml/external/USET_imager/L1centered/USET_CalciumII-K/'
+	BASE_FILE_PATH = '/data/usetml/external/USET_imager/L1centered/USET_CalciumII-K/'
 	
 	# The base file URL to build the default file_url (must end with a /)
 	BASE_FILE_URL = 'https://www.sidc.be/data/usetml/external/USET_imager/L1centered/USET_CalciumII-K/'
