@@ -14,7 +14,7 @@ from provider_tools import MetadataFromTapRecord, DataLocationFromTapRecord, RES
 
 
 DATASET = 'EIT synoptic'
-TAP_SERVICE_URL = 'http://idoc-dachs.ias.u-psud.fr/tap/'
+TAP_SERVICE_URL = 'https://idoc-dachs.ias.u-psud.fr/tap/'
 TABLE_NAME = 'eit_syn.epn_core'
 
 
