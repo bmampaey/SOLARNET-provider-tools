@@ -1,8 +1,8 @@
-import json
 import yaml
 from datetime import datetime, date, time
 from http.client import HTTPConnection
 from slumber import API, serialize
+import simplejson as json
 
 
 __all__ = ['RESTfulApi']
@@ -89,7 +89,7 @@ class ApiKeyAuth:
 class JsonSerializer(serialize.JsonSerializer):
 	'''JSON serialiser that accept datetime objects'''
 	def dumps(self, data):
-		return json.dumps(data, cls = DateTimeEncoder)
+		return json.dumps(data, ignore_nan = True, cls = DateTimeEncoder)
 
 class DateTimeEncoder(json.JSONEncoder):
 	'''Encode a datetime object into an ISO 8601 sting'''
