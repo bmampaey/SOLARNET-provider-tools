@@ -18,18 +18,18 @@ from provider_tools import (
 )
 
 
-DATASET = 'USET CalciumII-K level 1'
+DATASET = 'USET H-alpha level 1'
 
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_PATH = '/mnt/solar1-uset/cameras/output_img/FTS/L1c/USET_CalciumII-K/'
+	BASE_FILE_PATH = '/mnt/solar1-uset/cameras/output_img/FTS/L1c/USET_H-alpha/'
 
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'https://www.sidc.be/uset/data/cameras/output_img/FTS/L1c/USET_CalciumII-K/'
+	BASE_FILE_URL = 'https://www.sidc.be/uset/data/cameras/output_img/FTS/L1c/USET_H-alpha/'
 
 	# The base thumbnail URL to build the default tumbnail_url, uses the fits2thumbnail service of the SVO to convert FITS to png
-	BASE_THUMBNAIL_URL = 'https://www.sidc.be/uset/data/cameras/output_img/png/L1c_png_750_text/USET_CalciumII-K/'
+	BASE_THUMBNAIL_URL = 'https://www.sidc.be/uset/data/cameras/output_img/png/L1c_png_750_text/USET_H-alpha/'
 
 	def get_thumbnail_url(self):
 		"""Override to return the proper URL for the thumbnail"""
