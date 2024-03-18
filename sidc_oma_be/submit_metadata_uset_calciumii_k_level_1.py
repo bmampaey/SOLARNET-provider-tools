@@ -40,12 +40,12 @@ class Metadata(MetadataFromFitsHeader):
 	def get_field_date_end(self):
 		return self.get_field_value('date_beg') + timedelta(seconds=self.get_field_value('xposure'))
 
-	# TODO is there a better value for this
+	# These are fixed values that coresspond to wavelnth -/+ 1/2 waveband
 	def get_field_wavemin(self):
-		return self.get_field_value('wavelnth')
+		return 393.235
 
 	def get_field_wavemax(self):
-		return self.get_field_value('wavelnth')
+		return 393.505
 
 
 class Provider(ProviderFromLocalFitsFile):
