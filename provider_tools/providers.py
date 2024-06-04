@@ -52,7 +52,7 @@ class Provider:
 			if retries:
 				return self.get_data_location(file_url, retries - 1)
 			raise RuntimeError(
-				'Could not retrieve data location for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(why))
+				'Could not retrieve data location for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(error))
 			) from error
 
 		return result['objects'][0] if result.get('objects', None) else None
