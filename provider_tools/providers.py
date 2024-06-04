@@ -22,24 +22,24 @@ class Provider:
 		"""Get the dataset info from the API"""
 		try:
 			return self.api.dataset(dataset_name).get()
-		except Exception as why:
-			raise RuntimeError('Could not retrieve info for dataset "%s": %s', (dataset_name, why)) from why
+		except Exception as error:
+			raise RuntimeError('Could not retrieve info for dataset "%s": %s', (dataset_name, error)) from error
 
 	def get_keywords(self, dataset_name):
 		"""Return the list of keywords for the dataset from the API"""
 		try:
 			return self.api.keyword.get(dataset__name=dataset_name, limit=0)['objects']
-		except Exception as why:
-			raise RuntimeError('Could not retrieve keywords for dataset "%s": %s' % (dataset_name, why)) from why
+		except Exception as error:
+			raise RuntimeError('Could not retrieve keywords for dataset "%s": %s' % (dataset_name, error)) from error
 
 	def get_metadata(self, oid):
 		"""Return the metadata corresponding to the oid or None if no such exists"""
 		try:
 			result = self.metadata_resource.get(oid=oid)
-		except Exception as why:
+		except Exception as error:
 			raise RuntimeError(
-				'Could not retrieve metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(why))
-			) from why
+				'Could not retrieve metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(error))
+			) from error
 
 		return result['objects'][0] if result.get('objects', None) else None
 
@@ -61,10 +61,10 @@ class Provider:
 		"""Create a new data record for the dataset"""
 		try:
 			result = self.metadata_resource.post(resource_data)
-		except Exception as why:
+		except Exception as error:
 			raise RuntimeError(
-				'Could not create metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(why))
-			) from why
+				'Could not create metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(error))
+			) from error
 		return result
 
 	def update(self, resource_data, oid=None):
@@ -76,10 +76,10 @@ class Provider:
 			raise ValueError('"oid" is undefined: it must be present in the resource_data dict or passed explicitly')
 		try:
 			result = self.metadata_resource(oid).patch(resource_data)
-		except Exception as why:
+		except Exception as error:
 			raise RuntimeError(
-				'Could not update metadata %s for dataset "%s": %s' % (self.dataset['name'], oid, self.api.exception_to_text(why))
-			) from why
+				'Could not update metadata %s for dataset "%s": %s' % (self.dataset['name'], oid, self.api.exception_to_text(error))
+			) from error
 		return result
 
 
@@ -111,8 +111,8 @@ class ProviderFromLocalFitsFile(Provider):
 
 			try:
 				resource_data = self.get_resource_data(file_path)
-			except Exception as why:
-				logging.critical('Could not extract resource data for file "%s": %s', file_path, why)
+			except Exception as error:
+				logging.critical('Could not extract resource data for file "%s": %s', file_path, error)
 			else:
 				logging.debug(pformat(resource_data, indent=2, width=200))
 
@@ -127,8 +127,8 @@ class ProviderFromLocalFitsFile(Provider):
 				else:
 					try:
 						result = self.create(resource_data)
-					except Exception as why:
-						logging.error('Could not create new metadata or data_location resource for file "%s": %s', file_path, why)
+					except Exception as error:
+						logging.error('Could not create new metadata or data_location resource for file "%s": %s', file_path, error)
 					else:
 						logging.info('Created new metadata resource "%s" for file "%s"', result['resource_uri'], file_path)
 
@@ -171,8 +171,8 @@ class ProviderFromFitsUrl(Provider):
 
 			try:
 				resource_data = self.get_resource_data(file_url)
-			except Exception as why:
-				logging.critical('Could not extract resource data for URL "%s": %s', file_url, why)
+			except Exception as error:
+				logging.critical('Could not extract resource data for URL "%s": %s', file_url, error)
 			else:
 				logging.debug(pformat(resource_data, indent=2, width=200))
 
@@ -186,8 +186,8 @@ class ProviderFromFitsUrl(Provider):
 				else:
 					try:
 						result = self.create(resource_data)
-					except Exception as why:
-						logging.error('Could not create new metadata or data_location resource for URL "%s": %s', file_url, why)
+					except Exception as error:
+						logging.error('Could not create new metadata or data_location resource for URL "%s": %s', file_url, error)
 					else:
 						logging.info('Created new metadata resource "%s" for URL "%s"', result['resource_uri'], file_url)
 
@@ -216,8 +216,8 @@ class ProviderFromTapRecord(Provider):
 
 			try:
 				resource_data = self.get_resource_data(record)
-			except Exception as why:
-				logging.critical('Could not extract resource data for record "%s": %s', record, why)
+			except Exception as error:
+				logging.critical('Could not extract resource data for record "%s": %s', record, error)
 			else:
 				logging.debug(pformat(resource_data, indent=2, width=200))
 
@@ -231,7 +231,7 @@ class ProviderFromTapRecord(Provider):
 				else:
 					try:
 						result = self.create(resource_data)
-					except Exception as why:
-						logging.error('Could not create new metadata or data_location resource for record "%s": %s', record, why)
+					except Exception as error:
+						logging.error('Could not create new metadata or data_location resource for record "%s": %s', record, error)
 					else:
 						logging.info('Created new metadata resource "%s" for record "%s"', result['resource_uri'], record)

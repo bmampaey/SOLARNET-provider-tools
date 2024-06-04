@@ -117,8 +117,8 @@ if __name__ == '__main__':
 
 	try:
 		provider = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
-	except Exception as why:
-		logging.critical('Could not create provider: %s', why)
+	except Exception as error:
+		logging.critical('Could not create provider: %s', error)
 		raise
 
 	provider.submit_new_metadata(utils.iter_files(args.fits_files, args.min_modif_time), args.dry_run)
