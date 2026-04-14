@@ -2,3 +2,5 @@ python-dateutil
 slumber
 astropy
 pyvo
+simplejson
+htmllistparse
