@@ -1,7 +1,8 @@
 import logging
 from math import isfinite
+
+from astropy import time, units
 from dateutil.parser import parse
-from astropy import units, time
 
 __all__ = ['MetadataFromFitsHeader', 'MetadataFromTapRecord']
 
@@ -23,7 +24,7 @@ class MetadataFromFitsHeader:
 		# Create the resource data dict with the required keywords
 		# and use the metadata keyword definitions to extract the value for the rest of the fields
 		resource_data = {
-			field: self.get_field_value(field) for field in ('oid', 'fits_header', 'date_beg', 'date_end', 'wavemin', 'wavemax')
+			field: self.get_field_value(field) for field in ('oid', 'date_beg', 'date_end', 'wavemin', 'wavemax')
 		}
 
 		for name in self.keywords:
