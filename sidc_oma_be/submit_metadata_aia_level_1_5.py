@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 """Script to extract metadata from the AIA level 1.5 archive and submit it to the SOLARNET Virtual Observatory"""
 
-import sys
 import argparse
 import logging
-from pathlib import Path
+import sys
 from datetime import timedelta
+from pathlib import Path
 from urllib.parse import urljoin
-
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from provider_tools import (
-	MetadataFromFitsHeader,
 	DataLocationFromLocalFile,
-	RESTfulApi,
+	MetadataFromFitsHeader,
 	ProviderFromLocalFitsFile,
+	RESTfulApi,
 	utils,
 )
-
 
 DATASET = 'AIA level 1.5'
 
@@ -52,6 +50,9 @@ class DataLocation(DataLocationFromLocalFile):
 
 
 class Metadata(MetadataFromFitsHeader):
+	def get_field_oid(self):
+		return '%04d%s' % (self.get_field_value('wavelnth'), self.get_field_value('date_beg').strftime('%Y%m%d%H%M%S'))
+
 	def get_field_date_beg(self):
 		return self.get_field_value('date_obs')
 
