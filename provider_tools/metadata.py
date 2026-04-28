@@ -157,11 +157,13 @@ class MetadataFromTapRecord:
 	def get_field_date_end(self):
 		return self.jd_to_datetime(self.get_field_value('time_max'))
 
+	# Be carrefull, the spectral_range_max is in Hz and the the wavemin is in nm, so the min in one unit is the max in the other
 	def get_field_wavemin(self):
-		return self.hz_to_nm(self.get_field_value('spectral_range_min'))
+		return round(self.hz_to_nm(self.get_field_value('spectral_range_max')), 2)
 
+	# Be carrefull, the spectral_range_max is in Hz and the the wavemin is in nm, so the min in one unit is the max in the other
 	def get_field_wavemax(self):
-		return self.hz_to_nm(self.get_field_value('spectral_range_max'))
+		return round(self.hz_to_nm(self.get_field_value('spectral_range_min')), 2)
 
 	def hz_to_nm(self, value):
 		"""Convert value in Hz to nm"""
