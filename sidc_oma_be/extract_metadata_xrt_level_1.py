@@ -8,10 +8,10 @@ from pathlib import Path
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import DataLocationFromUrl, MetadataFromFitsHeader, ProviderFromFitsUrl, RESTfulApi, utils
+from provider_tools import DataLocationFromUrl, ExtractorFromFitsUrl, MetadataFromFitsHeader, RESTfulApi, utils
 
 DATASET = 'XRT level 1'
-BASE_FILE_URL = 'https://sao.virtualsolar.org/VSO/DataProvider/SAO/hinode/xrt/level1/'
+BASE_FILE_URL = 'https://xrt.cfa.harvard.edu/level1/'
 
 
 class DataLocation(DataLocationFromUrl):
@@ -44,8 +44,8 @@ class Metadata(MetadataFromFitsHeader):
 			return self.get_field_value('date_beg').strftime('%Y%m%d%H%M%S%f')[:-3]
 
 
-class Provider(ProviderFromFitsUrl):
-	HEADER_SIZE = 6 * 2880
+class Extractor(ExtractorFromFitsUrl):
+	HEADER_SIZE = 7 * 2880
 
 	METADATA_CLASS = Metadata
 
@@ -72,24 +72,29 @@ if __name__ == '__main__':
 		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
 	)
 	parser.add_argument(
-		'--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead'
-	)
-	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
 		help='Only submit record if the modification_date is after that date',
 	)
-
+	parser.add_argument(
+		'--output-file',
+		'-o',
+		help='JSONL file for the output, if not provided will output to stdout',
+	)
 	args = parser.parse_args()
 
 	# Setup the logging
 	logging.basicConfig(level=getattr(logging, args.verbose), format='%(asctime)s %(levelname)-8s: %(message)s')
 
 	try:
-		provider = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
+		exractor = Extractor(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
-		logging.critical('Could not create provider: %s', error)
+		logging.critical('Could not create exractor: %s', error)
 		raise
 
-	provider.submit_new_metadata(utils.iter_urls(args.urls, min_modification_time=args.min_modif_time), args.dry_run)
+	if args.output_file:
+		with open(args.output_file, 'wt') as output_file:
+			exractor.write_metadata(utils.iter_urls(args.urls, min_modification_time=args.min_modif_time), output_file)
+	else:
+		exractor.write_metadata(utils.iter_urls(args.urls, min_modification_time=args.min_modif_time), sys.stdout)
