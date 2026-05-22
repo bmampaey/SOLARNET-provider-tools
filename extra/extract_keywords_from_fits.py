@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-import os
-import re
-import json
-import pickle
-import logging
 import argparse
+import json
+import logging
+import os
+import pickle
+import re
+import string
+from collections import Counter, defaultdict
 from datetime import datetime
-from collections import defaultdict, Counter
+
 from astropy.io import fits
 from dateutil.parser import parse as parse_date
+
+DEFAULT_EXCLUDE_KEYWORDS = ['DATASUM', 'CHECKSUM', 'SIMPLE', 'BITPIX']
 
 
 class KeywordInspector:
 	"""Given a list of FITS file paths or URLs, inspect the keywords and output the information needed for the SVO database"""
 
 	# Default keywords to exclude
-	DEFAULT_EXCLUDE_KEYWORDS = ['DATASUM', 'CHECKSUM', 'SIMPLE', 'BITPIX', 'COMMENT', 'HISTORY']
 
 	# SVO keyword type names
 	KEYWORD_TYPE_NAMES = {
@@ -30,26 +33,29 @@ class KeywordInspector:
 	# Units are usually specified at the beginning of the comment between brackets
 	UNIT_PATTERN = re.compile(r'\s*\[\s*(?P<unit>[^\]]+)\s*\](?P<comment>.*)\s*')
 
-	def __init__(self, fits_files, hdu, exclude_keywords=[], backup_file_path=None, force_interactive=False):
-		self.fits_files = fits_files
+	def __init__(self, hdu, exclude_keywords=None, add_fits_header=False, backup_file=None, force_interactive=False):
 		self.hdu = hdu
-		self.exclude_keywords = self.DEFAULT_EXCLUDE_KEYWORDS + [keyword.upper() for keyword in exclude_keywords]
-		self.backup_file_path = backup_file_path
+		self.exclude_keywords = (
+			set(keyword.upper() for keyword in exclude_keywords) if exclude_keywords is not None else set()
+		)
+		self.add_fits_header = add_fits_header
+		self.backup_file = backup_file
+		self.force_interactive = force_interactive
 
 		# Count all the possible values and comments for each keyword
 		self.keyword_values = defaultdict(Counter)
 		self.keyword_comments = defaultdict(Counter)
+		self.keyword_names = {}
 		self.processed_fits_files = []
 
 		self.log = logging.getLogger('keyword inspector')
-		self.force_interactive = force_interactive
 
-	def process_fits_files(self):
+	def process_fits_files(self, fits_files):
 		"""Inspect all the FITS files and extract the keywords, their value and comment"""
 
 		self.restore_backup()
 
-		for fits_file in self.fits_files:
+		for fits_file in fits_files:
 			if fits_file in self.processed_fits_files:
 				self.log.info('File %s was already processed. Skipping !', fits_file)
 			else:
@@ -58,7 +64,7 @@ class KeywordInspector:
 					with fits.open(fits_file, cache=False, lazy_load_hdus=True) as hdu_list:
 						try:
 							header = hdu_list[self.hdu].header
-						except IndexError as error:
+						except IndexError:
 							self.log.error('File %s does not have HDU %s . Skipping!', fits_file, hdu)
 						else:
 							self.inspect_header(header)
@@ -70,10 +76,6 @@ class KeywordInspector:
 	def inspect_header(self, header):
 		"""Inspect a FITS header and add the keywords, their value and comment"""
 
-		keyword_infos = list()
-		comment_count = 0
-		history_count = 0
-
 		for card in header.cards:
 			try:
 				keyword = card.keyword
@@ -84,7 +86,7 @@ class KeywordInspector:
 				continue
 
 			if keyword.upper() in self.exclude_keywords:
-				self.log.debug('Keyword %s in exclude_keywords. Skipping!', keyword)
+				self.log.info('Keyword %s is excluded', keyword)
 				continue
 
 			else:
@@ -96,19 +98,26 @@ class KeywordInspector:
 
 		keyword_infos = list()
 
+		if self.add_fits_header:
+			keyword_infos.append({
+				'name': 'fits_header',
+				'verbose_name': 'FITS header',
+				'type': self.KEYWORD_TYPE_NAMES[str],
+				'unit': None,
+				'description': 'Header of HDU %s in the FITS file' % self.hdu,
+			})
+
 		for keyword, values in self.keyword_values.items():
 			keyword_type = self.resolve_keyword_type(keyword)
 			keyword_unit, keyword_description = self.resolve_keyword_unit_description(keyword)
 
-			keyword_infos.append(
-				{
-					'name': self.get_keyword_name(keyword),
-					'verbose_name': keyword,
-					'type': keyword_type,
-					'unit': keyword_unit,
-					'description': keyword_description,
-				}
-			)
+			keyword_infos.append({
+				'name': self.resolve_keyword_name(keyword=keyword, name=keyword.strip().lower()),
+				'verbose_name': keyword,
+				'type': keyword_type,
+				'unit': keyword_unit,
+				'description': keyword_description,
+			})
 
 		return keyword_infos
 
@@ -222,34 +231,81 @@ class KeywordInspector:
 
 		return value
 
-	def get_keyword_name(self, keyword):
-		"""Convert a keyword into a SVO compliant keyword name"""
+	def resolve_keyword_name(self, keyword, name=''):
+		"""Convert a FITS keyword into a SVO compliant keyword name"""
 
-		# Convert the keyword to lower case
-		name = keyword.strip().lower()
-		# replace any unusual name character by an underscore
-		name = re.sub(r'[^a-zA-Z0-9_]', r'_', name)
-		# remove consecutive underscores
-		while name.find(r'__') >= 0:
-			name = new_name.replace(r'__', r'_')
-		# remove underscores at extremities
-		name = name.strip('_')
+		# Check if the name is valid
+		name_is_valid = True
 
-		return name
+		if not name:
+			print('Field name for keyword "%s" must not be empty' % keyword)
+			name_is_valid = False
+		elif name in self.keyword_names:
+			print(
+				'Field name "%s" for keyword "%s" was already used for keyword "%s"' % (name, keyword, self.keyword_names[name])
+			)
+			name_is_valid = False
+		else:
+			invalid_errors = []
+
+			# Check for invalid characters, only simple characters are allowed to avoid errors in the RESTful API
+			if invalid_chars := set(name) - set(string.digits + string.ascii_lowercase + '_'):
+				invalid_errors.append('characters %s are invalid' % ' '.join(invalid_chars))
+
+			# Check consecutive underscores, these will infer with the RESTful API filtering
+			if '__' in name:
+				invalid_errors.append('double underscore are not allowed')
+
+			# Check for invalid char at start and end, to avoid issues with python variable names
+			if name[0] not in string.ascii_lowercase:
+				invalid_errors.append('name cannot start with %s' % name[0])
+
+			# Check for invalid char at end, to avoid issues with the RESTful API filtering
+			if name[-1] not in (string.digits + string.ascii_lowercase):
+				invalid_errors.append('name cannot end with %s' % name[-1])
+
+			if invalid_errors:
+				print('Field name "%s" for keyword "%s" is invalid:\n - %s' % (name, keyword, '\n - '.join(invalid_errors)))
+				name_is_valid = False
+
+		if name_is_valid:
+			self.keyword_names[name] = keyword
+			return name
+
+		# Try to suggest a name that will be valid
+		suggested_name = re.sub(r'[^a-z0-9_]', '_', keyword.strip().lower())
+
+		while suggested_name and (suggested_name.find(r'__') >= 0):
+			suggested_name = suggested_name.replace(r'__', r'_')
+
+		while suggested_name and (suggested_name[0] not in string.ascii_lowercase):
+			suggested_name = suggested_name[1:]
+
+		while suggested_name and (suggested_name[-1] not in (string.digits + string.ascii_lowercase)):
+			suggested_name = suggested_name[:-1]
+
+		if suggested_name and suggested_name not in self.keyword_names:
+			new_name = (
+				input('Please enter a new name or press enter for suggested name "%s" : ' % suggested_name) or suggested_name
+			)
+		else:
+			new_name = input('Please enter a new name : ')
+
+		return self.resolve_keyword_name(keyword, new_name)
 
 	def save_backup(self):
 		"""Save the state of the keyword inspector from a backup file"""
 
 		# Pickle the processed_fits_files, keyword_values and keyword_comments to the backup file
-		if self.backup_file_path:
-			self.log.debug('Saving state to backup file file %s', self.backup_file_path)
+		if self.backup_file:
+			self.log.debug('Saving state to backup file file %s', self.backup_file)
 			try:
-				with open(self.backup_file_path, 'wb') as file:
+				with open(self.backup_file, 'wb') as file:
 					pickle.dump(self.processed_fits_files, file)
 					pickle.dump(self.keyword_values, file)
 					pickle.dump(self.keyword_comments, file)
 			except IOError as error:
-				self.log.error('Could not open backup file %s for writing: %s', self.backup_file_path, error)
+				self.log.error('Could not open backup file %s for writing: %s', self.backup_file, error)
 				raise
 			except Exception as error:
 				self.log.error('Could not save state to backup file: %s', error)
@@ -259,14 +315,14 @@ class KeywordInspector:
 		"""Restore the state of the keyword inspector from a backup file"""
 
 		# Un-pickle the processed_fits_files, keyword_values and keyword_comments from the backup file
-		if self.backup_file_path and os.path.isfile(self.backup_file_path):
+		if self.backup_file and os.path.isfile(self.backup_file):
 			try:
-				with open(self.backup_file_path, 'rb') as file:
+				with open(self.backup_file, 'rb') as file:
 					self.processed_fits_files = pickle.load(file)
 					self.keyword_values = pickle.load(file)
 					self.keyword_comments = pickle.load(file)
 			except IOError as error:
-				self.log.error('Could not open backup file %s for reading: %s', self.backup_file_path, error)
+				self.log.error('Could not open backup file %s for reading: %s', self.backup_file, error)
 				raise
 			except Exception as error:
 				self.log.error('Could not restore state from backup file: %s', error)
@@ -278,7 +334,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser(
 		description='Inspect the header of one or more FITS files and extract the keywords definitions for the SOLARNET Virtual Observatory. If possible try to use files spread over the entire dataset, instead of consecutive files, this will allow to detect changes over time in the header of the files.'
 	)
-	parser.add_argument('fits_files', metavar='FITSFILE', nargs='+', help='Path or URL to a FITS file to inspect')
+	parser.add_argument('fits_files', metavar='FITSFILE', nargs='*', help='Path or URL to a FITS file to inspect')
 	parser.add_argument(
 		'--hdu',
 		default='0',
@@ -291,18 +347,24 @@ if __name__ == '__main__':
 		help='Path to the output JSON file with the keywords definitions',
 	)
 	parser.add_argument(
-		'--exclude',
-		'-E',
+		'--exclude-keyword',
+		'-e',
 		metavar='KEYWORD',
-		default=[],
+		default=DEFAULT_EXCLUDE_KEYWORDS,
 		action='append',
-		help='Keywords to exclude, can be specified multiple times',
+		help='Keywords to exclude, for exemple COMMENT or HISTORY, can be specified multiple times (default to %s)'
+		% ', '.join(DEFAULT_EXCLUDE_KEYWORDS),
 	)
 	parser.add_argument(
-		'--backup',
+		'--add-fits-header',
+		action='store_true',
+		help='If specified, the special keyword "FITS header" will be added to allow storing the entire FITS header in the SVO',
+	)
+	parser.add_argument(
+		'--backup-file',
 		'-b',
 		metavar='BACKUPFILE',
-		help='Path to a backup file where the progress will be saved so that in case of an error, it is possible to start where it had failed',
+		help='Path to a backup file where the progress will be saved so that it is possible to call the script again without rescanning the previously processed FITS files',
 	)
 	parser.add_argument(
 		'--force-interactive',
@@ -313,6 +375,10 @@ if __name__ == '__main__':
 	parser.add_argument('--debug', '-d', action='store_true', help='Set the logging level to debug')
 
 	args = parser.parse_args()
+
+	if not args.fits_files:
+		if not args.backup_file or not os.path.isfile(args.backup_file) or not os.path.getsize(args.backup_file):
+			parser.error('You must provide at least 1 FITS file path or a previously created backup file')
 
 	# Setup the logging
 	if args.debug:
@@ -331,15 +397,15 @@ if __name__ == '__main__':
 
 	# Process the fits files and write the keyword info to the output file
 	keyword_inspector = KeywordInspector(
-		args.fits_files,
 		hdu=hdu,
-		exclude_keywords=args.exclude,
-		backup_file_path=args.backup,
+		exclude_keywords=args.exclude_keyword,
+		add_fits_header=args.add_fits_header,
+		backup_file=args.backup_file,
 		force_interactive=args.force_interactive,
 	)
 
 	try:
-		keyword_inspector.process_fits_files()
+		keyword_inspector.process_fits_files(args.fits_files)
 	except Exception as error:
 		logging.critical('Fatal error: %s' % error)
 		raise
