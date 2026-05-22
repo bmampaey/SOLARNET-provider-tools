@@ -119,7 +119,7 @@ if __name__ == '__main__':
 	try:
 		exractor = Extractor(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
-		logging.critical('Could not create provider: %s', error)
+		logging.critical('Could not create exractor: %s', error)
 		raise
 
 	if args.output_file:
