@@ -1,16 +1,16 @@
-import os
-import logging
 import io
+import logging
+import os
 import zlib
-import requests
-from glob import iglob
 from datetime import datetime
-from urllib.parse import urljoin, unquote, urlparse
-from dateutil.parser import parse, ParserError
-from pyvo.dal import tap
-from astropy.io import fits
-import htmllistparse
+from glob import iglob
+from urllib.parse import unquote, urljoin, urlparse
 
+import htmllistparse
+import requests
+from astropy.io import fits
+from dateutil.parser import ParserError, parse
+from pyvo.dal import tap
 
 __all__ = [
 	'parse_date_time_string',
@@ -131,7 +131,9 @@ def get_fits_header_from_local_file(file_path, hdu_name_or_index=0):
 		return hdus[hdu_name_or_index].header
 
 
-def get_fits_header_from_url(file_url, header_size=2880, header_offset=0, zipped=False, webserver_auth=None):
+def get_fits_header_from_url(
+	file_url, http_session, header_size=2880, header_offset=0, zipped=False, max_retry_count=3
+):
 	"""Return the header of a FITS file URL"""
 
 	# If FITS file is zipped, the response content must be decompressed before writing it to the pseudo file
@@ -148,9 +150,20 @@ def get_fits_header_from_url(file_url, header_size=2880, header_offset=0, zipped
 	while True:
 		logging.debug('Reading file %s from %s to %s', file_url, range_start, range_end - 1)
 		# We set the desired range in the HTTP header, note that both bounds are inclusive
-		response = requests.get(
-			file_url, headers={'Range': 'Bytes=%s-%s' % (range_start, range_end - 1)}, auth=webserver_auth
-		)
+		for retry_count in range(1, max_retry_count + 1):
+			try:
+				response = http_session.get(
+					file_url, headers={'Range': 'Bytes=%s-%s' % (range_start, range_end - 1)}, timeout=(10, 30)
+				)
+				break
+			except requests.exceptions.Timeout:
+				logging.warning('Timeout error on %s (Attempt %s/%s)', file_url, retry_count, max_retry_count)
+			except requests.exceptions.SSLError as error:
+				logging.warning('SSL Handshake failed for %s : %s (Attempt %s/%s)', file_url, error, retry_count, max_retry_count)
+			except requests.exceptions.RequestException as error:
+				logging.warning('Network error for  %s : %s (Attempt %s/%s)', file_url, error, retry_count, max_retry_count)
+		else:
+			raise RuntimeError('Could not download file %s' % file_url)
 
 		if zipped:
 			fits_file.write(decompressor.decompress(response.content))

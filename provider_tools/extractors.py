@@ -2,6 +2,8 @@ import json
 import logging
 from pprint import pformat
 
+import requests
+
 from .data_location import DataLocationFromLocalFile, DataLocationFromUrl
 from .metadata import MetadataFromFitsHeader
 from .utils import get_fits_header_from_local_file, get_fits_header_from_url
@@ -85,11 +87,20 @@ class ExtractorFromFitsUrl(Extractor):
 
 	DATA_LOCATION_CLASS = DataLocationFromUrl
 
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.http_session = requests.Session()
+		self.http_session.auth = self.WEBSERVER_AUTH
+
 	def get_resource_data(self, file_url):
 		"""Extract the data for the metadata and data_location resource from a FITS file URL"""
 		metadata = self.METADATA_CLASS(
 			fits_header=get_fits_header_from_url(
-				file_url, self.HEADER_SIZE, self.HEADER_OFFSET, self.ZIPPED, self.WEBSERVER_AUTH
+				file_url,
+				self.http_session,
+				self.HEADER_SIZE,
+				self.HEADER_OFFSET,
+				self.ZIPPED,
 			),
 			keywords=self.keywords,
 		)
