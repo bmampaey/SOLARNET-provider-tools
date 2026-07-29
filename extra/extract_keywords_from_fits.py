@@ -157,7 +157,7 @@ class KeywordInspector:
 		if keyword_type_name is self.KEYWORD_TYPE_NAMES[str]:
 			try:
 				date = parse_date(value)
-			except ValueError:
+			except (ValueError, OverflowError):
 				pass
 			else:
 				self.log.debug('Could parse the value "%s" to date "%s", assume it is a time keyword', value, date)
