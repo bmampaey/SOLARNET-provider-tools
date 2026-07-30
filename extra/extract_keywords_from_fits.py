@@ -12,13 +12,12 @@ from datetime import datetime
 from astropy.io import fits
 from dateutil.parser import parse as parse_date
 
+# Default keywords to exclude
 DEFAULT_EXCLUDE_KEYWORDS = ['DATASUM', 'CHECKSUM', 'SIMPLE', 'BITPIX']
 
 
 class KeywordInspector:
 	"""Given a list of FITS file paths or URLs, inspect the keywords and output the information needed for the SVO database"""
-
-	# Default keywords to exclude
 
 	# SVO keyword type names
 	KEYWORD_TYPE_NAMES = {
@@ -27,6 +26,38 @@ class KeywordInspector:
 		float: 'real',
 		datetime: 'time (ISO 8601)',
 		str: 'text',
+	}
+
+	# SVO mandatory keywords, the type and unit must conform
+	MANDATORY_KEYWORDS = {
+		'wavemin': {
+			'name': 'wavemin',
+			'verbose_name': 'WAVEMIN',
+			'type': KEYWORD_TYPE_NAMES[float],
+			'unit': 'nm',
+			'description': 'Min wavelength of the observation',
+		},
+		'wavemax': {
+			'name': 'wavemax',
+			'verbose_name': 'WAVEMAX',
+			'type': KEYWORD_TYPE_NAMES[float],
+			'unit': 'nm',
+			'description': 'Max wavelength of the observation',
+		},
+		'date_beg': {
+			'name': 'date_beg',
+			'verbose_name': 'DATE-BEG',
+			'type': KEYWORD_TYPE_NAMES[datetime],
+			'unit': 'UTC',
+			'description': 'Start time of the observation',
+		},
+		'date_end': {
+			'name': 'date_end',
+			'verbose_name': 'DATE-END',
+			'type': KEYWORD_TYPE_NAMES[datetime],
+			'unit': 'UTC',
+			'description': 'End time of the observation',
+		},
 	}
 
 	# Regex to extract the unit from the comment in a FITS header
@@ -118,6 +149,8 @@ class KeywordInspector:
 				'unit': keyword_unit,
 				'description': keyword_description,
 			})
+
+		self.check_mandatory_keywords(keyword_infos)
 
 		return keyword_infos
 
@@ -292,6 +325,27 @@ class KeywordInspector:
 			new_name = input('Please enter a new name : ')
 
 		return self.resolve_keyword_name(keyword, new_name)
+
+	def check_mandatory_keywords(self, keyword_infos):
+		found_mandatory_keywords = set()
+
+		for keyword_info in keyword_infos:
+			if keyword_info['name'] in self.MANDATORY_KEYWORDS:
+				found_mandatory_keywords.add(keyword_info['name'])
+				if keyword_info['type'] != self.MANDATORY_KEYWORDS[keyword_info['name']]['type']:
+					self.log.warning(
+						'Forcing keyword %s type to %s', keyword_info['name'], self.MANDATORY_KEYWORDS[keyword_info['name']]['type']
+					)
+					keyword_info['type'] = self.MANDATORY_KEYWORDS[keyword_info['name']]['type']
+				if keyword_info['unit'] != self.MANDATORY_KEYWORDS[keyword_info['name']]['unit']:
+					self.log.warning(
+						'Forcing keyword %s unit to %s', keyword_info['name'], self.MANDATORY_KEYWORDS[keyword_info['name']]['unit']
+					)
+					keyword_info['unit'] = self.MANDATORY_KEYWORDS[keyword_info['name']]['unit']
+
+		for missing_keyword in self.MANDATORY_KEYWORDS.keys() - found_mandatory_keywords:
+			self.log.warning('Adding mandatory keyword %s', missing_keyword)
+			keyword_infos.append(self.MANDATORY_KEYWORDS[missing_keyword])
 
 	def save_backup(self):
 		"""Save the state of the keyword inspector from a backup file"""
