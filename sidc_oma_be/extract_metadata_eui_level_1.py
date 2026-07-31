@@ -31,7 +31,7 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_THUMBNAIL_DIRECTORY = '/data/EUI/managed/L3/'
 
 	# The base thumbnail URL to build the default tumbnail_url, uses the image2thumbnail service of the SVO to convert JP2 to png
-	BASE_THUMBNAIL_URL = 'https://solarnet2.oma.be/service/image2thumbnail/?url=https://www.sidc.be/EUI/data/L3/'
+	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/image2thumbnail/?url=https://www.sidc.be/EUI/data/L3/'
 
 	def get_thumbnail_url(self):
 		"""Override to return the proper URL for the thumbnail"""

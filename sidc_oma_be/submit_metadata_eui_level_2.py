@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """Script to extract metadata from the EUI archive and submit it to the SOLARNET Virtual Observatory"""
 
-import sys
 import argparse
 import logging
-from pathlib import Path
+import sys
 from datetime import timedelta
+from pathlib import Path
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from provider_tools import (
-	MetadataFromFitsHeader,
 	DataLocationFromLocalFile,
-	RESTfulApi,
+	MetadataFromFitsHeader,
 	ProviderFromLocalFitsFile,
+	RESTfulApi,
 	utils,
 )
-
 
 DATASET = 'EUI level 2'
 
@@ -32,7 +31,7 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_THUMBNAIL_DIRECTORY = '/data/EUI/managed/L3/'
 
 	# The base thumbnail URL to build the default tumbnail_url, uses the image2thumbnail service of the SVO to convert JP2 to png
-	BASE_THUMBNAIL_URL = 'https://solarnet2.oma.be/service/image2thumbnail/?url=https://www.sidc.be/EUI/data/L3/'
+	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/image2thumbnail/?url=https://www.sidc.be/EUI/data/L3/'
 
 	def get_thumbnail_url(self):
 		"""Override to return the proper URL for the thumbnail"""
