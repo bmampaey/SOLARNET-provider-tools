@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Script to extract metadata from the Leibniz-KIS TAP service and submit it to the SOLARNET Virtual Observatory"""
 
-import sys
 import argparse
 import logging
-import requests
+import sys
 from pathlib import Path
 from pprint import pformat
 
+import requests
+
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import MetadataFromTapRecord, DataLocationFromTapRecord, RESTfulApi, ProviderFromTapRecord, utils
-
+from provider_tools import DataLocationFromTapRecord, MetadataFromTapRecord, ProviderFromTapRecord, RESTfulApi, utils
 
 DATASET = 'ChroTel level 1'
 TAP_SERVICE_URL = 'http://dachs.sdc.leibniz-kis.de/tap'
@@ -36,7 +36,7 @@ class DataLocation(DataLocationFromTapRecord):
 			file_path = ''
 
 		if not file_path:
-			file_path = self.record['granule_uid'] + '.tar'
+			file_path = self.tap_record['granule_uid'] + '.tar'
 			logging.warning('Setting file path to arbitrary value %s', file_path)
 
 		return file_path
