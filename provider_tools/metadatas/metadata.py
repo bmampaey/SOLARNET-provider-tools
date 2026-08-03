@@ -1,7 +1,6 @@
+import datetime
 import logging
-from math import isfinite
-
-from dateutil.parser import parse
+import math
 
 __all__ = ['Metadata']
 
@@ -9,8 +8,14 @@ __all__ = ['Metadata']
 class Metadata:
 	"""Base class for building metadata resource payloads."""
 
-	# Methods to convert the FITS keywords values to the proper SVO type
-	KEYWORD_VALUE_CONVERSION = {'text': str, 'boolean': bool, 'integer': int, 'real': float, 'time (ISO 8601)': parse}
+	# Correspondence mapping between the python type of the field value and the keyword type
+	KEYWORD_TYPE_CHECK = {
+		'text': str,
+		'boolean': bool,
+		'integer': int,
+		'real': float,
+		'time (ISO 8601)': datetime.datetime,
+	}
 
 	def __init__(self, keywords):
 		"""Store the keyword definitions used to populate metadata field values."""
@@ -38,29 +43,33 @@ class Metadata:
 	def get_field_value(self, keyword):
 		"""Return the metadata value defined by a keyword specification."""
 		# If there is a specific method to get the value for the field, use it
+		# Else extract it from the source data
 		field_value_getter = getattr(self, 'get_field_' + keyword['name'], None)
 		if field_value_getter is not None:
-			return field_value_getter()
+			field_value = field_value_getter()
+		else:
+			field_value = self.extract_field_value(keyword)
 
-		# Else use the general extraction method and convert it following the keyword type
-		field_value = self.extract_field_value(keyword)
-		field_value = self.convert_field_value(field_value, keyword['type'])
+		self.check_field_value_type(field_value, keyword)
+
+		return field_value
 
 	def extract_field_value(self, keyword):
 		"""Extract a field value from the source data."""
 		raise NotImplementedError()
 
-	def convert_field_value(self, field_value, keyword_type):
-		"""Convert a field value to the expected metadata type."""
-		keyword_value_conversion = self.KEYWORD_VALUE_CONVERSION.get(keyword_type, None)
+	def check_field_value_type(self, field_value, keyword):
+		"""Check that a field value is of the expected keyword type."""
+		try:
+			field_value_type = self.KEYWORD_TYPE_CHECK[keyword['type']]
+		except KeyError as error:
+			raise NotImplementedError('Unknown type %s of keyword %s' % (keyword['type'], keyword['name'])) from error
 
-		if keyword_value_conversion is not None:
-			try:
-				field_value = keyword_value_conversion(field_value)
-			except Exception as error:
-				raise ValueError('Could not convert value "%s" to %s' % (field_value, keyword_type)) from error
+		if not isinstance(field_value, field_value_type):
+			raise TypeError(
+				'Value for field %s expected to be %s but is %s (%s)'
+				% (keyword['name'], field_value_type, type(field_value), field_value)
+			)
 
-		if keyword_type == 'real' and not isfinite(field_value):
-			field_value = None
-
-		return field_value
+		if isinstance(field_value, float) and not math.isfinite(field_value):
+			raise ValueError('Value for field %s must be finite, not %s' % (keyword['name'], field_value))

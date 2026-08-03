@@ -1,4 +1,7 @@
-from astropy import time, units
+import math
+
+import astropy
+import dateutil
 
 from .metadata import Metadata
 
@@ -8,6 +11,15 @@ __all__ = ['MetadataFromTapRecord']
 class MetadataFromTapRecord(Metadata):
 	"""Build metadata payloads from TAP records."""
 
+	# Methods to convert the TAP record values to the expected keyword type
+	FIELD_VALUE_CONVERSION = {
+		'text': str,
+		'boolean': bool,
+		'integer': int,
+		'real': float,
+		'time (ISO 8601)': dateutil.parser.parse,
+	}
+
 	def __init__(self, keywords, tap_record):
 		"""Store the keyword definitions and TAP record."""
 		super().__init__(keywords)
@@ -16,9 +28,22 @@ class MetadataFromTapRecord(Metadata):
 	def extract_field_value(self, keyword):
 		"""Extract a field value from the TAP record."""
 		try:
-			return self.tap_record[keyword['verbose_name']]
+			field_value = self.tap_record[keyword['verbose_name']]
 		except KeyError:
-			raise ValueError('Field %s missing from TAPRecord' % keyword['verbose_name'])
+			raise ValueError('Field %s missing from TAP record' % keyword['verbose_name'])
+
+		field_value_conversion = self.FIELD_VALUE_CONVERSION.get(keyword['type'], None)
+
+		if field_value_conversion is not None:
+			try:
+				field_value = field_value_conversion(field_value)
+			except Exception as error:
+				raise ValueError('Cannot convert value "%s" to %s' % (field_value, keyword['type'])) from error
+
+		if isinstance(field_value, float) and not math.isfinite(field_value):
+			field_value = None
+
+		return field_value
 
 	def get_field_oid(self):
 		"""Return the unique observation identifier from the TAP record."""
@@ -47,8 +72,8 @@ class MetadataFromTapRecord(Metadata):
 
 	def hz_to_nm(self, value):
 		"""Convert a value from hertz to nanometers."""
-		return (value * units.Hz).to(units.nm, equivalencies=units.spectral()).value
+		return (value * astropy.units.Hz).to(astropy.units.nm, equivalencies=astropy.units.spectral()).value
 
 	def jd_to_datetime(self, value):
 		"""Convert a Julian date to a datetime object."""
-		return time.Time(value, format='jd').datetime
+		return astropy.time.Time(value, format='jd').datetime
