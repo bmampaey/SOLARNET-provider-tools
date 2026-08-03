@@ -8,7 +8,13 @@ __all__ = ['MetadataFromFitsHeader']
 
 
 class MetadataFromFitsHeader(Metadata):
-	"""Build metadata payloads from FITS header values."""
+	"""Build metadata payloads from FITS header values.
+
+	Extracts field values by looking up each keyword's verbose name in the
+	FITS header, converting the value to the type expected by the keyword,
+	and providing dedicated handling for the observation identifier and
+	the serialized header itself.
+	"""
 
 	# Methods to convert the FITS keywords values to the expected keyword type
 	FIELD_VALUE_CONVERSION = {
@@ -20,12 +26,34 @@ class MetadataFromFitsHeader(Metadata):
 	}
 
 	def __init__(self, keywords, fits_header):
-		"""Store the keyword definitions and FITS header."""
+		"""Store the keyword definitions and FITS header to extract values from.
+
+		Args:
+			keywords (list): Keyword definitions describing the metadata
+				fields to extract, as expected by :class:`Metadata`.
+			fits_header: The FITS header (e.g. an
+				``astropy.io.fits.Header``) to extract field values from.
+		"""
 		super().__init__(keywords)
 		self.fits_header = fits_header
 
 	def extract_field_value(self, keyword):
-		"""Extract a field value from the FITS header."""
+		"""Extract and convert a field value from the FITS header.
+
+		Args:
+			keyword (dict): Keyword definition with ``verbose_name`` (the
+				key to look up in the FITS header) and ``type`` (used to
+				select the appropriate conversion via
+				:data:`FIELD_VALUE_CONVERSION`).
+
+		Returns:
+			The converted field value, or ``None`` if it converts to a
+			non-finite float.
+
+		Raises:
+			ValueError: If the keyword is missing from the FITS header, or
+				if its value cannot be converted to the expected type.
+		"""
 		try:
 			field_value = self.fits_header[keyword['verbose_name']]
 		except KeyError:
@@ -45,7 +73,20 @@ class MetadataFromFitsHeader(Metadata):
 		return field_value
 
 	def get_field_oid(self):
-		"""Return the observation identifier derived from the FITS header."""
+		"""Return the observation identifier derived from the FITS header.
+
+		By default, the observation start date is used to build the
+		identifier, since there is usually no more than one observation per
+		second. Subclasses handling data where this is not true should
+		override this method.
+
+		Returns:
+			str: The ``date_beg`` field formatted as ``%Y%m%d%H%M%S``.
+
+		Raises:
+			ValueError: If ``date_beg`` could not be resolved, since the
+				identifier cannot be computed without it.
+		"""
 		# By default use the date of observation as there is usually no more that 1 observation per second
 		# Otherwise override
 		observation_date = self.get_field_value('date_beg')
@@ -55,6 +96,11 @@ class MetadataFromFitsHeader(Metadata):
 			raise ValueError('date_beg is not defined, cannot compute oid')
 
 	def get_field_fits_header(self):
-		"""Return the FITS header as a serialized string."""
+		"""Return the full FITS header serialized as a string.
+
+		Returns:
+			str: The FITS header converted to its string representation,
+			with leading/trailing whitespace stripped.
+		"""
 		# Convert the fits_header to string for the metadata resources that require it
 		return self.fits_header.tostring().strip()
