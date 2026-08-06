@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """Script to extract metadata from the EIT archive and submit it to the SOLARNET Virtual Observatory"""
 
-import sys
 import argparse
 import logging
-from pathlib import Path
+import sys
 from datetime import timedelta
+from pathlib import Path
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from provider_tools import (
-	MetadataFromFitsHeader,
 	DataLocationFromLocalFile,
-	RESTfulApi,
+	MetadataFromFitsHeader,
 	ProviderFromLocalFitsFile,
+	RESTfulApi,
 	utils,
 )
-
 
 DATASET = 'EIT level 0'
 
@@ -121,9 +120,6 @@ if __name__ == '__main__':
 		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
 	)
 	parser.add_argument(
-		'--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead'
-	)
-	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
@@ -141,4 +137,4 @@ if __name__ == '__main__':
 		logging.critical('Could not create provider: %s', error)
 		raise
 
-	provider.submit_new_metadata(utils.iter_files(args.fits_files, args.min_modif_time), args.dry_run)
+	provider.submit_new_metadata(utils.iter_files(args.fits_files, args.min_modif_time))

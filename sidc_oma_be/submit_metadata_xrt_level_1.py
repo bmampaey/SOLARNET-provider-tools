@@ -72,9 +72,6 @@ if __name__ == '__main__':
 		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
 	)
 	parser.add_argument(
-		'--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead'
-	)
-	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
@@ -92,4 +89,4 @@ if __name__ == '__main__':
 		logging.critical('Could not create provider: %s', error)
 		raise
 
-	provider.submit_new_metadata(utils.iter_urls(args.urls, min_modification_time=args.min_modif_time), args.dry_run)
+	provider.submit_new_metadata(utils.iter_urls(args.urls, min_modification_time=args.min_modif_time))

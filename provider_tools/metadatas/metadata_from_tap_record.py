@@ -9,7 +9,7 @@ __all__ = ['MetadataFromTapRecord']
 
 
 class MetadataFromTapRecord(Metadata):
-	"""Build metadata payloads from EPN-TAP records.
+	"""Build metadata payloads from an EPN-TAP record.
 
 	Extracts field values by looking up each keyword's verbose name in the
 	TAP record, converting the value to the type expected by the keyword,
@@ -32,7 +32,7 @@ class MetadataFromTapRecord(Metadata):
 		Args:
 			keywords (list): Keyword definitions describing the metadata
 				fields to extract, as expected by :class:`Metadata`.
-			tap_record (dict): The EPN-TAP record to extract field values from.
+			tap_record (Mapping): The EPN-TAP record to extract field values from.
 		"""
 		super().__init__(keywords)
 		self.tap_record = tap_record

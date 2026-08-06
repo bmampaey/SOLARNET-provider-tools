@@ -2,10 +2,36 @@ __all__ = ['DataLocation']
 
 
 class DataLocation:
-	"""Base class for building data_location resource payloads."""
+	"""Base class for building data_location resource payloads.
+
+	Subclasses are expected to derive the payload fields (``file_url``,
+	``file_size``, ``file_path``, ``thumbnail_url``) from a specific data
+	source (e.g. a remote URL, a TAP record, or a local file) by overriding
+	the relevant getter methods.
+	"""
 
 	def __init__(self, file_url=None, file_size=None, file_path=None, thumbnail_url=None, offline=False):
-		"""Store the location metadata used to build a resource payload."""
+		"""Initialize the data location with explicit metadata values.
+
+		Any of these values may be left as ``None`` (or ``False`` for
+		``offline``) and computed lazily by subclasses that override the
+		corresponding getter method.
+
+		Parameters
+		----------
+		file_url : str, optional
+		    Publicly accessible URL of the file.
+		file_size : int, optional
+		    Size of the file, in bytes.
+		file_path : str, optional
+		    Path of the file, relative to some base location. Leading
+		    ``./`` or ``.`` segments are stripped when returned.
+		thumbnail_url : str, optional
+		    URL of a thumbnail image representing the file.
+		offline : bool, optional
+		    Whether the resource is only available offline. Defaults to
+		    ``False``.
+		"""
 		self.file_url = file_url
 		self.file_size = file_size
 		self.file_path = file_path
@@ -13,8 +39,15 @@ class DataLocation:
 		self.offline = offline
 
 	def get_resource_data(self):
-		"""Return a dictionary containing the data_location payload fields."""
+		"""Build the full ``data_location`` payload for the resource.
 
+		Returns
+		-------
+		dict
+		    Dictionary with the keys ``file_url``, ``file_size``,
+		    ``file_path``, ``thumbnail_url``, and ``offline``, populated
+		    using the corresponding getter methods.
+		"""
 		resource_data = {
 			'file_url': self.get_file_url(),
 			'file_size': self.get_file_size(),
@@ -26,23 +59,57 @@ class DataLocation:
 		return resource_data
 
 	def get_file_url(self):
-		"""Return the file URL for the resource."""
+		"""Return the public URL of the file.
+
+		Returns
+		-------
+		str or None
+		    The value of ``self.file_url``.
+		"""
 		return self.file_url
 
 	def get_file_size(self):
-		"""Return the file size in bytes."""
+		"""Return the size of the file, in bytes.
+
+		Returns
+		-------
+		int or None
+		    The value of ``self.file_size``.
+		"""
 		return self.file_size
 
 	def get_file_path(self):
-		"""Return the relative file path."""
+		"""Return the file path, relative to its base location.
+
+		Any leading ``./`` (or ``.``) characters are stripped so the
+		returned path is always relative.
+
+		Returns
+		-------
+		str or None
+		    The relative file path, or ``None`` if ``self.file_path`` is
+		    not set.
+		"""
 		# file_path must always be relative
 		if self.file_path:
 			return self.file_path.lstrip('./')
 
 	def get_thumbnail_url(self):
-		"""Return the thumbnail URL for the resource."""
+		"""Return the URL of the thumbnail image for the resource.
+
+		Returns
+		-------
+		str or None
+		    The value of ``self.thumbnail_url``.
+		"""
 		return self.thumbnail_url
 
 	def get_offline(self):
-		"""Return the offline flag value."""
+		"""Return whether the resource is only available offline.
+
+		Returns
+		-------
+		bool
+		    The value of ``self.offline``.
+		"""
 		return self.offline

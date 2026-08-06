@@ -1,3 +1,4 @@
+import json
 import logging
 
 __all__ = ['Provider']
@@ -58,8 +59,7 @@ class Provider:
 				be retrieved.
 
 		Returns:
-			list: The list of keyword objects associated with the dataset
-			(unbounded, since the request is made with ``limit=0``).
+			list: The list of keyword objects associated with the dataset.
 
 		Raises:
 			RuntimeError: If the API request fails for any reason.
@@ -86,7 +86,8 @@ class Provider:
 			result = self.metadata_resource.get(oid=oid)
 		except Exception as error:
 			raise RuntimeError(
-				'Could not retrieve metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(error))
+				'Could not retrieve metadata "%s" for dataset "%s": %s'
+				% (oid, self.dataset['name'], self.api.exception_to_text(error))
 			) from error
 
 		return result['objects'][0] if result.get('objects', None) else None
@@ -117,7 +118,7 @@ class Provider:
 		return result['objects'][0] if result.get('objects', None) else None
 
 	def create(self, resource_data):
-		"""Create a new metadata and data_location resources for the dataset.
+		"""Create new metadata and data_location resources for the dataset.
 
 		Args:
 			resource_data (dict): The payload to POST to the dataset's
@@ -131,6 +132,7 @@ class Provider:
 		"""
 
 		data_location = self.get_data_location(resource_data['data_location']['file_url'])
+
 		if data_location is not None:
 			self.logger.info(
 				'Data location resource for URL %s already exists, reusing it!', resource_data['data_location']['file_url']
@@ -138,6 +140,7 @@ class Provider:
 			resource_data['data_location'] = data_location['resource_uri']
 		else:
 			resource_data['data_location']['dataset'] = self.dataset['resource_uri']
+
 		try:
 			result = self.metadata_resource.post(resource_data)
 		except Exception as error:
@@ -175,6 +178,62 @@ class Provider:
 			result = self.metadata_resource(oid).patch(resource_data)
 		except Exception as error:
 			raise RuntimeError(
-				'Could not update metadata %s for dataset "%s": %s' % (self.dataset['name'], oid, self.api.exception_to_text(error))
+				'Could not update metadata for dataset "%s": %s' % (self.dataset['name'], self.api.exception_to_text(error))
 			) from error
 		return result
+
+	def get_resource_data(self, item):
+		"""Build a metadata + data_location resource payload for a single item.
+
+		Must be implemented by subclasses.
+
+		Args:
+			item: The item to process (a URL, file path, TAP record, etc.,
+				depending on the subclass).
+
+		Returns:
+			dict: The metadata and data_location resource payload.
+		"""
+		raise NotImplementedError
+
+	def process_items(self, items, submit=True, output=None):
+		"""Extract, print, and optionally submit resource data for a list of items.
+
+		For each item, extract the metadata and data_location payloads and
+		print them as a single line of JSON to ``output`` (or standard
+		output if ``output`` is not provided). If ``submit`` is True, also
+		create the corresponding metadata and data_location resource on the
+		SVO API.
+		Errors for individual items are logged and do not stop processing
+		of the remaining items.
+
+		Args:
+			items (Iterable): Items to process (URLs, file paths, TAP
+				records, etc., depending on the subclass).
+			submit (bool): If True (the default), also submit each resource
+				payload to the SVO API.
+			output: A writable file-like object that JSON-serialized
+				resource payloads are printed to, one per line. Defaults to
+				standard output. Non-JSON-native values (e.g. dates) are
+				serialized using ``str()`` as a fallback.
+		Returns:
+			None
+		"""
+		for item in items:
+			self.logger.info('Processing %s ', item)
+
+			try:
+				resource_data = self.get_resource_data(item)
+			except Exception as error:
+				self.logger.error('Could not extract resource data for %s: %s', item, error)
+				continue
+
+			print(json.dumps(resource_data, default=str), file=output)
+
+			if submit:
+				try:
+					result = self.create(resource_data)
+				except Exception as error:
+					self.logger.error('Could not create new metadata or data_location resource for %s: %s', item, error)
+				else:
+					self.logger.info('Created new metadata resource "%s" for %s', result['resource_uri'], item)

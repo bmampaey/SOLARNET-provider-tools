@@ -1,5 +1,5 @@
 import json
-from pprint import pformat
+import pprint
 
 import requests
 
@@ -73,68 +73,4 @@ class ProviderFromFitsUrl(Provider):
 		data_location = self.DATA_LOCATION_CLASS(file_url)
 		resource_data = metadata.get_resource_data()
 		resource_data['data_location'] = data_location.get_resource_data()
-		resource_data['data_location']['dataset'] = self.dataset['resource_uri']
 		return resource_data
-
-	def submit_new_metadata(self, file_urls):
-		"""Extract metadata and data_location payloads for a list of FITS URLs and create the corresponding metadata and data_location resources.
-
-		For each URL, builds the resource payload and
-		then creates a new metadata resource.
-		Errors for individual URLs are logged and do not stop processing
-		of the remaining URLs.
-
-		Args:
-			file_urls (Iterable[str]): URLs of the FITS files to process.
-
-		Returns:
-			None
-		"""
-		for file_url in file_urls:
-			self.logger.info('Processing URL "%s"', file_url)
-
-			try:
-				resource_data = self.get_resource_data(file_url)
-			except Exception as error:
-				self.logger.critical('Could not extract resource data for URL "%s": %s', file_url, error)
-				continue
-			else:
-				self.logger.debug(pformat(resource_data, indent=2, width=200))
-
-			try:
-				result = self.create(resource_data)
-			except Exception as error:
-				self.logger.error('Could not create new metadata or data_location resource for URL "%s": %s', file_url, error)
-			else:
-				self.logger.info('Created new metadata resource "%s" for URL "%s"', result['resource_uri'], file_url)
-
-	def write_metadata(self, file_urls, output_file):
-		"""Extract metadata and data_location payloads for a list of FITS URLs and write them to a JSONL file.
-
-		For each URL, builds the resource payload via :meth:`get_resource_data`
-		and writes it as a single line of JSON to ``output_file`` (JSON Lines
-		format). Errors for individual URLs are logged and skipped, allowing
-		the remaining URLs to still be processed.
-
-		Args:
-			file_urls (Iterable[str]): URLs of the FITS files to process.
-			output_file: A writable file-like object that JSON-serialized
-				resource payloads are written to, one per line. Non-JSON-native
-				values (e.g. dates) are serialized using ``str()`` as a fallback.
-
-		Returns:
-			None
-		"""
-		for file_url in file_urls:
-			self.logger.info('Processing URL "%s"', file_url)
-
-			try:
-				resource_data = self.get_resource_data(file_url)
-			except Exception as error:
-				self.logger.critical('Could not extract resource data for URL "%s": %s', file_url, error)
-				continue
-			else:
-				self.logger.debug(pformat(resource_data, indent=2, width=200))
-
-			json.dump(resource_data, output_file, default=str)
-			output_file.write('\n')

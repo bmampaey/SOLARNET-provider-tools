@@ -4,15 +4,43 @@ __all__ = ['DataLocationFromTapRecord']
 
 
 class DataLocationFromTapRecord(DataLocation):
-	"""Build a data_location payload from a TAP record."""
+	"""Build a data_location payload from an EPN-TAP record.
+
+	Values that are not explicitly provided are looked up from the
+	corresponding fields of the supplied ``tap_record``.
+	"""
 
 	def __init__(self, tap_record, **kwargs):
-		"""Store the TAP record and initialize the parent class."""
+		"""Initialize the data location from a TAP record.
+
+		Parameters
+		----------
+		tap_record : Mapping
+		    A TAP record (or record-like mapping) potentially containing
+		    the fields ``access_url``, ``access_estsize``, ``file_name``,
+		    and ``thumbnail_url``.
+		**kwargs
+		    Additional keyword arguments forwarded to
+		    :meth:`DataLocation.__init__` (``file_url``, ``file_size``,
+		    ``file_path``, ``thumbnail_url``, ``offline``).
+		"""
 		self.tap_record = tap_record
 		super().__init__(**kwargs)
 
 	def get_file_url(self):
-		"""Return the file URL declared by the TAP record."""
+		"""Return the file URL, falling back to the TAP record's ``access_url``.
+
+		Returns
+		-------
+		str
+		    The file URL.
+
+		Raises
+		------
+		ValueError
+		    If ``self.file_url`` is not set and the TAP record does not
+		    define ``access_url``.
+		"""
 		if self.file_url is not None:
 			return self.file_url
 		elif 'access_url' in self.tap_record:
@@ -21,7 +49,19 @@ class DataLocationFromTapRecord(DataLocation):
 			raise ValueError('Either file_url must be set or access_url be defined on the record')
 
 	def get_file_size(self):
-		"""Return the estimated file size declared by the TAP record."""
+		"""Return the file size, falling back to the TAP record's ``access_estsize``.
+
+		Returns
+		-------
+		int
+		    The estimated size of the file, in bytes.
+
+		Raises
+		------
+		ValueError
+		    If ``self.file_size`` is not set and the TAP record does not
+		    define ``access_estsize``.
+		"""
 		if self.file_size is not None:
 			return self.file_size
 		elif 'access_estsize' in self.tap_record:
@@ -30,7 +70,19 @@ class DataLocationFromTapRecord(DataLocation):
 			raise ValueError('Either file_size must be set or access_estsize be defined on the record')
 
 	def get_file_path(self):
-		"""Return the file path from the file name declared by the TAP record."""
+		"""Return the relative file path, falling back to the TAP record's ``file_name``.
+
+		Returns
+		-------
+		str
+		    The relative file path.
+
+		Raises
+		------
+		ValueError
+		    If ``self.file_path`` is not set and the TAP record does not
+		    define ``file_name``.
+		"""
 		if self.file_path is not None:
 			file_path = self.file_path
 		elif 'file_name' in self.tap_record:
@@ -42,7 +94,14 @@ class DataLocationFromTapRecord(DataLocation):
 		return file_path.lstrip('./')
 
 	def get_thumbnail_url(self):
-		"""Return the thumbnail URL declared by the TAP record."""
+		"""Return the thumbnail URL, falling back to the TAP record's ``thumbnail_url``.
+
+		Returns
+		-------
+		str or None
+		    The thumbnail URL, or ``None`` if neither ``self.thumbnail_url``
+		    nor the TAP record's ``thumbnail_url`` field is available.
+		"""
 		if self.thumbnail_url is not None:
 			return self.thumbnail_url
 		elif 'thumbnail_url' in self.tap_record:

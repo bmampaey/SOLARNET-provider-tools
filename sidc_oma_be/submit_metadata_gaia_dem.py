@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Script to extract metadata from the MEDOC TAP serviceand submit it to the SOLARNET Virtual Observatory"""
 
-import sys
 import argparse
 import logging
-import requests
+import sys
 from pathlib import Path
 from pprint import pformat
 
+import requests
+
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import MetadataFromTapRecord, DataLocationFromTapRecord, RESTfulApi, ProviderFromTapRecord, utils
-
+from provider_tools import DataLocationFromTapRecord, MetadataFromTapRecord, ProviderFromTapRecord, RESTfulApi, utils
 
 DATASET = 'GAIA DEM'
 TAP_SERVICE_URL = 'https://idoc-dachs.ias.u-psud.fr/tap/'
@@ -66,9 +66,6 @@ if __name__ == '__main__':
 		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
 	)
 	parser.add_argument(
-		'--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead'
-	)
-	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
@@ -93,5 +90,4 @@ if __name__ == '__main__':
 		utils.iter_tap_records(
 			TAP_SERVICE_URL, TABLE_NAME, max_count=args.batch_size, min_modification_time=args.min_modif_time
 		),
-		args.dry_run,
 	)

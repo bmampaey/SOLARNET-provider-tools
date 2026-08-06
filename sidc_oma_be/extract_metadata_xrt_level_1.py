@@ -8,7 +8,7 @@ from pathlib import Path
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import DataLocationFromUrl, ExtractorFromFitsUrl, MetadataFromFitsHeader, RESTfulApi, utils
+from provider_tools import DataLocationFromUrl, MetadataFromFitsHeader, ProviderFromFitsUrl, RESTfulApi, utils
 
 DATASET = 'XRT level 1'
 BASE_FILE_URL = 'https://xrt.cfa.harvard.edu/level1/'
@@ -44,7 +44,7 @@ class Metadata(MetadataFromFitsHeader):
 			return self.get_field_value('date_beg').strftime('%Y%m%d%H%M%S%f')[:-3]
 
 
-class Extractor(ExtractorFromFitsUrl):
+class Provider(ProviderFromFitsUrl):
 	HEADER_SIZE = 7 * 2880
 
 	METADATA_CLASS = Metadata
@@ -56,14 +56,14 @@ if __name__ == '__main__':
 	# Get the arguments
 	parser = argparse.ArgumentParser(description='Submit metadata from a FITS URL the SVO')
 	parser.add_argument(
-		'--verbose', '-v', choices=['DEBUG', 'INFO', 'ERROR'], default='INFO', help='Set the logging level (default is INFO)'
-	)
-	parser.add_argument(
 		'urls',
 		metavar='URL',
 		nargs='*',
 		default=[BASE_FILE_URL],
 		help="A URL to a FITS file to submit to the SVO (also accept apache style directory indexing, don't forget to end diretories URL with a slash)",
+	)
+	parser.add_argument(
+		'--verbose', '-v', choices=['DEBUG', 'INFO', 'ERROR'], default='INFO', help='Set the logging level (default is INFO)'
 	)
 	parser.add_argument(
 		'--auth-file',
@@ -88,7 +88,7 @@ if __name__ == '__main__':
 	logging.basicConfig(level=getattr(logging, args.verbose), format='%(asctime)s %(levelname)-8s: %(message)s')
 
 	try:
-		exractor = Extractor(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
+		exractor = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
 		logging.critical('Could not create exractor: %s', error)
 		raise
