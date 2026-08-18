@@ -4,7 +4,6 @@
 import argparse
 import logging
 import sys
-from datetime import timedelta
 from pathlib import Path
 
 # HACK to make sure the provider_tools package is findable
@@ -31,28 +30,28 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_THUMBNAIL_URL = 'https://spoca.oma.be/spoca4tap/rob_spoca_ch/ch_map_overlay/'
 
 	def get_thumbnail_url(self):
-		"""Override to return the proper URL for the thumbnail"""
+		# Construct the thumbnail URL from the filename
 		return self.BASE_THUMBNAIL_URL + Path(self.local_file).with_suffix('.png').name
 
 
 class Metadata(MetadataFromFitsHeader):
-	def get_field_date_beg(self):
-		return self.get_field_value('date_obs')
+	def get_date_beg(self):
+		return self.extract_field_value('date_obs')
 
-	def get_field_date_end(self):
-		return self.get_field_value('date_obs')
+	def get_date_end(self):
+		return self.extract_field_value('date_obs')
 
 	# TODO is there a better value for this
-	def get_field_wavemin(self):
+	def get_wavemin(self):
 		return None
 
-	def get_field_wavemax(self):
+	def get_wavemax(self):
 		return None
 
-	def get_field_thrawar(self):
+	def get_thrawar(self):
 		return False
 
-	def get_field_tracked(self):
+	def get_tracked(self):
 		return True
 
 
@@ -66,7 +65,9 @@ class Provider(ProviderFromLocalFitsFile):
 
 if __name__ == '__main__':
 	# Get the arguments
-	parser = argparse.ArgumentParser(description='Submit metadata from a FITS file to the SVO')
+	parser = argparse.ArgumentParser(
+		description='Extract metadata from FITS files and submit them to the SVO for dataset "%s"' % DATASET
+	)
 	parser.add_argument(
 		'--verbose',
 		'-v',
@@ -75,30 +76,34 @@ if __name__ == '__main__':
 		help='Set the logging level (default is INFO)',
 	)
 	parser.add_argument(
-		'fits_files',
-		metavar='FITS FILE',
-		nargs='+',
-		help='A FITS file to submit to the SVO (also accept glob pattern)',
-	)
-	parser.add_argument(
 		'--auth-file',
 		'-a',
 		default='./.svo_auth',
-		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
-	)
-	parser.add_argument(
-		'--dry-run',
-		'-f',
-		action='store_true',
-		help='Do not submit data but print what data would be submitted instead',
+		help='File containing authentication credentials for the SVO (in the format email:API key)',
 	)
 	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
-		help='Only submit file if the modification time is after that date',
+		help='Only extract the metadata if the modification time is later than the minimum',
 	)
-
+	parser.add_argument(
+		'--submit',
+		default=True,
+		action=argparse.BooleanOptionalAction,
+		help='If set (the default), submit the metadata to the server; if negated with --no-submit, only print the metadata',
+	)
+	parser.add_argument(
+		'--output-file',
+		'-o',
+		help='Path to a JSONL file to which the metadata will be written, instead of printed',
+	)
+	parser.add_argument(
+		'fits_files',
+		metavar='FITS FILE',
+		nargs='+',
+		help='Path to a FITS file to process (also accept glob pattern)',
+	)
 	args = parser.parse_args()
 
 	# Setup the logging
@@ -110,7 +115,13 @@ if __name__ == '__main__':
 	try:
 		provider = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
-		logging.critical('Could not create provider: %s', error)
+		logging.critical('Could not initialise provider: %s', error)
 		raise
 
-	provider.submit_new_metadata(utils.iter_files(args.fits_files, args.min_modif_time), args.dry_run)
+	items = utils.iter_files(args.fits_files, args.min_modif_time)
+
+	if args.output_file:
+		with open(args.output_file, 'wt') as output_file:
+			provider.process_items(items, args.submit, output_file)
+	else:
+		provider.process_items(items, args.submit)

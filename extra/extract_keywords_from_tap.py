@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-import logging
 import argparse
 import json
+import logging
 import re
+
 import pyvo
 
 
 class KeywordInspector:
-	"""Given the URL of a TAP service, inspect the columns and output the information needed for the SVO database"""
+	"""Inspect the columns of of a TAP service table, and build the information needed for the SVO"""
 
 	# Conversion from VOtable datatype to SVO keyword type
 	# See https://www.ivoa.net/documents/VOTable/20130920/REC-VOTable-1.3-20130920.html#ToC11
@@ -58,15 +59,13 @@ class KeywordInspector:
 			if column.name in self.exclude_columns:
 				logging.info('Skipping excluded column "%s"', column.name)
 			else:
-				keyword_infos.append(
-					{
-						'name': self.get_keyword_name(column),
-						'verbose_name': self.get_keyword_verbose_name(column),
-						'type': self.get_keyword_type(column, sample_record.get(column.name)),
-						'unit': self.get_keyword_unit(column),
-						'description': self.get_keyword_description(column),
-					}
-				)
+				keyword_infos.append({
+					'name': self.get_keyword_name(column),
+					'verbose_name': self.get_keyword_verbose_name(column),
+					'type': self.get_keyword_type(column, sample_record.get(column.name)),
+					'unit': self.get_keyword_unit(column),
+					'description': self.get_keyword_description(column),
+				})
 
 		return keyword_infos
 
@@ -159,7 +158,12 @@ if __name__ == '__main__':
 		description='Query a TAP service to extract the keywords definitions for the SOLARNET Virtual Observatory.'
 	)
 	parser.add_argument('service_url', metavar='URL', help='The URL of the TAP service')
-	parser.add_argument('--output', '-o', help='Path to the output JSON file with the keywords definitions')
+	parser.add_argument(
+		'--output',
+		'-o',
+		default='keywords_definitions.json',
+		help='Path to the output JSON file with the keywords definitions',
+	)
 	parser.add_argument(
 		'--exclude',
 		'-E',
@@ -184,13 +188,8 @@ if __name__ == '__main__':
 	# Process the fits files and write the keyword info to the output file
 	keyword_inspector = KeywordInspector(args.service_url, exclude_columns=args.exclude)
 
-	if args.output:
-		output_filename = args.output
-	else:
-		output_filename = '%s_keywords_definition.json' % keyword_inspector.table.name
-
 	try:
-		with open(output_filename, 'tw', encoding='UTF-8') as output_file:
+		with open(args.output, 'tw', encoding='UTF-8') as output_file:
 			json.dump(keyword_inspector.get_keyword_infos(), output_file, ensure_ascii=False, indent='\t')
 	except IOError as error:
 		logging.critical('Could not open file %s for writing: %s' % (args.output, error))
@@ -199,4 +198,4 @@ if __name__ == '__main__':
 		logging.critical('Fatal error: %s' % error)
 		raise
 	else:
-		logging.info('Wrote keywords description file %s', output_filename)
+		logging.info('Wrote keywords definitions to file %s', args.output)

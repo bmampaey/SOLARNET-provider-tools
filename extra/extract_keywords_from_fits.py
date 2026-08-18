@@ -9,15 +9,15 @@ import string
 from collections import Counter, defaultdict
 from datetime import datetime
 
-from astropy.io import fits
-from dateutil.parser import parse as parse_date
+import astropy.io.fits
+import dateutil.parser
 
 # Default keywords to exclude
 DEFAULT_EXCLUDE_KEYWORDS = ['DATASUM', 'CHECKSUM', 'SIMPLE', 'BITPIX']
 
 
 class KeywordInspector:
-	"""Given a list of FITS file paths or URLs, inspect the keywords and output the information needed for the SVO database"""
+	"""Inspect the keywords of multiple FITS file paths or URLs,  and build the information needed for the SVO"""
 
 	# SVO keyword type names
 	KEYWORD_TYPE_NAMES = {
@@ -92,17 +92,15 @@ class KeywordInspector:
 			else:
 				self.log.info('Processing file %s', fits_file)
 				try:
-					with fits.open(fits_file, cache=False, lazy_load_hdus=True) as hdu_list:
-						try:
-							header = hdu_list[self.hdu].header
-						except IndexError:
-							self.log.error('File %s does not have HDU %s . Skipping!', fits_file, hdu)
-						else:
-							self.inspect_header(header)
-							self.processed_fits_files.append(fits_file)
-							self.save_backup()
+					header = astropy.io.fits.getheader(fits_file, self.hdu, cache=False)
+				except (IndexError, KeyError):
+					self.log.error('File %s does not have HDU %s . Skipping!', fits_file, self.hdu)
 				except OSError as error:
 					self.log.error('Could not open file %s: %s . Skipping!', fits_file, error)
+				else:
+					self.inspect_header(header)
+					self.processed_fits_files.append(fits_file)
+					self.save_backup()
 
 	def inspect_header(self, header):
 		"""Inspect a FITS header and add the keywords, their value and comment"""
@@ -189,7 +187,7 @@ class KeywordInspector:
 		# Time keywords are represented by string, so try to see if it is a valid time value
 		if keyword_type_name is self.KEYWORD_TYPE_NAMES[str]:
 			try:
-				date = parse_date(value)
+				date = dateutil.parser.parse(value)
 			except (ValueError, OverflowError):
 				pass
 			else:
@@ -473,3 +471,5 @@ if __name__ == '__main__':
 	except Exception as error:
 		logging.critical('Fatal error: %s' % error)
 		raise
+	else:
+		logging.info('Wrote keywords definitions to file %s', output_filename)

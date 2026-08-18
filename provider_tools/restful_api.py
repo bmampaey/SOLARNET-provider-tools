@@ -1,9 +1,9 @@
-import yaml
-from datetime import datetime, date, time
-from http.client import HTTPConnection
-from slumber import API, serialize
-import simplejson as json
+import http.client
 
+import slumber
+import yaml
+
+from .utils import JsonSerializer
 
 __all__ = ['RESTfulApi']
 
@@ -11,8 +11,20 @@ __all__ = ['RESTfulApi']
 SVO_API_URL = 'https://solarnet.oma.be/service/api/svo'
 
 
-class RESTfulApi(API):
-	"""RESTful API interface for the SVO"""
+class RESTfulApi(slumber.API):
+	"""RESTful API interface for the SVO.
+
+	Args:
+		username (str, optional): SVO username. Cannot be specified when
+			``auth_file`` is specified.
+		api_key (str, optional): SVO API key. Cannot be specified when
+			``auth_file`` is specified.
+		auth_file (str, optional): Path to a file containing the SVO username
+			and API key in ``username:api_key`` format. Cannot be specified when
+			``username`` and ``api_key`` are specified.
+		debug (bool, optional): Whether to enable HTTP connection debugging.
+			Defaults to ``False``.
+	"""
 
 	def __init__(self, username=None, api_key=None, auth_file=None, debug=False):
 		# Get the username and API key from the auth file or the arguments
@@ -29,20 +41,32 @@ class RESTfulApi(API):
 			auth = None
 
 		# Override the serializer to accept datetime objects
-		serializer = serialize.Serializer(default='json', serializers=[JsonSerializer()])
+		serializer = slumber.serialize.Serializer(default='json', serializers=[JsonSerializer()])
 
 		super().__init__(base_url=SVO_API_URL, auth=auth, serializer=serializer)
 
 		if debug:
-			HTTPConnection.debuglevel = 1
+			# Carefull this modifies the behavior of the library
+			http.client.HTTPConnection.debuglevel = 1
 
 	@classmethod
 	def parse_auth_file(cls, auth_file):
-		"""Read the username and api key from an auth file"""
+		"""Read the username and API key from an authentication file.
+
+		Args:
+			auth_file (str): Path to the authentication file.
+
+		Returns:
+			tuple[str, str]: A tuple containing the username and API key.
+
+		Raises:
+			RuntimeError: If the authentication file cannot be read or does
+				not have the expected ``username:api_key`` format.
+		"""
 		try:
 			with open(auth_file, 'r') as file:
 				auth = file.read().strip()
-		except Exception as error:
+		except OSError as error:
 			raise RuntimeError('Could not read SVO username and api key from file "%s": %s' % (auth_file, error)) from error
 
 		try:
@@ -54,6 +78,16 @@ class RESTfulApi(API):
 
 	@classmethod
 	def exception_to_text(cls, exception):
+		"""Convert an exception and its HTTP response to a text representation.
+
+		Args:
+			exception (Exception): Exception whose message and HTTP response
+				should be converted to text.
+
+		Returns:
+			str: The exception message, optionally followed by the response
+				JSON or text content.
+		"""
 		text = str(exception)
 
 		try:
@@ -73,7 +107,14 @@ class RESTfulApi(API):
 		return text
 
 	def __call__(self, resource_uri):
-		"""Returns a ressource by it's ressource URI"""
+		"""Return a resource by its resource URI.
+
+		Args:
+			resource_uri (str): URI identifying the resource to retrieve.
+
+		Returns:
+			object: The resource corresponding to ``resource_uri``.
+		"""
 		return getattr(self, resource_uri)
 
 
@@ -87,20 +128,3 @@ class ApiKeyAuth:
 	def __call__(self, request):
 		request.headers['Authorization'] = 'ApiKey %s:%s' % (self.username, self.api_key)
 		return request
-
-
-class JsonSerializer(serialize.JsonSerializer):
-	"""JSON serialiser that accept datetime objects"""
-
-	def dumps(self, data):
-		return json.dumps(data, ignore_nan=True, cls=DateTimeEncoder)
-
-
-class DateTimeEncoder(json.JSONEncoder):
-	"""Encode a datetime object into an ISO 8601 sting"""
-
-	def default(self, o):
-		if isinstance(o, (datetime, date, time)):
-			return o.isoformat()
-
-		return super().default(o)

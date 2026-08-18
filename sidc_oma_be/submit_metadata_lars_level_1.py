@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 """Script to extract metadata from the Leibniz-KIS TAP service and submit it to the SOLARNET Virtual Observatory"""
 
-import sys
 import argparse
 import logging
-import requests
+import sys
 from pathlib import Path
-from pprint import pformat
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from provider_tools import MetadataFromTapRecord, DataLocationFromTapRecord, RESTfulApi, ProviderFromTapRecord, utils
-
+from provider_tools import DataLocationFromTapRecord, MetadataFromTapRecord, ProviderFromTapRecord, RESTfulApi, utils
 
 DATASET = 'LARS level 1'
 TAP_SERVICE_URL = 'http://dachs.sdc.leibniz-kis.de/tap'
@@ -20,10 +17,10 @@ TABLE_NAME = 'lars.epn_core'
 
 class DataLocation(DataLocationFromTapRecord):
 	def get_file_size(self):
-		"""Override to return the correct size of file in bytes"""
+		# The access_estsize is not always set
 		try:
 			file_size = super().get_file_size()
-		except ValueError as error:
+		except ValueError:
 			file_size = 0
 			logging.warning('File size is unknown, setting to 0')
 
@@ -32,11 +29,11 @@ class DataLocation(DataLocationFromTapRecord):
 	def get_file_path(self):
 		try:
 			file_path = super().get_file_path()
-		except ValueError as error:
+		except ValueError:
 			file_path = ''
 
 		if not file_path:
-			file_path = self.record['granule_uid'] + '.tar'
+			file_path = self.tap_record['granule_uid'] + '.tar'
 			logging.warning('Setting file path to arbitrary value %s', file_path)
 
 		return file_path
@@ -50,29 +47,42 @@ class Provider(ProviderFromTapRecord):
 
 if __name__ == '__main__':
 	# Get the arguments
-	parser = argparse.ArgumentParser(description='Submit metadata from a TAP service to the SVO')
+	parser = argparse.ArgumentParser(
+		description='Extract metadata from a TAP service and submit them to the SVO for dataset "%s"' % DATASET
+	)
 	parser.add_argument(
-		'--verbose', '-v', choices=['DEBUG', 'INFO', 'ERROR'], default='INFO', help='Set the logging level (default is INFO)'
+		'--verbose',
+		'-v',
+		choices=['DEBUG', 'INFO', 'ERROR'],
+		default='INFO',
+		help='Set the logging level (default is INFO)',
 	)
 	parser.add_argument(
 		'--auth-file',
 		'-a',
 		default='./.svo_auth',
-		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
-	)
-	parser.add_argument(
-		'--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead'
+		help='File containing authentication credentials for the SVO (in the format email:API key)',
 	)
 	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
-		help='Only submit record if the modification_date is after that date',
+		help='Only extract the metadata if the modification time is later than the minimum',
+	)
+	parser.add_argument(
+		'--submit',
+		default=True,
+		action=argparse.BooleanOptionalAction,
+		help='If set (the default), submit the metadata to the server; if negated with --no-submit, only print the metadata',
+	)
+	parser.add_argument(
+		'--output-file',
+		'-o',
+		help='Path to a JSONL file to which the metadata will be written, instead of printed',
 	)
 	parser.add_argument(
 		'--batch-size', '-c', type=int, default=1000, help='The number of records to fetch from the TAP service in one call'
 	)
-
 	args = parser.parse_args()
 
 	# Setup the logging
@@ -81,12 +91,15 @@ if __name__ == '__main__':
 	try:
 		provider = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
-		logging.critical('Could not create provider: %s', error)
+		logging.critical('Could not initialise provider: %s', error)
 		raise
 
-	provider.submit_new_metadata(
-		utils.iter_tap_records(
-			TAP_SERVICE_URL, TABLE_NAME, max_count=args.batch_size, min_modification_time=args.min_modif_time
-		),
-		args.dry_run,
+	items = utils.iter_tap_records(
+		TAP_SERVICE_URL, TABLE_NAME, max_count=args.batch_size, min_modification_time=args.min_modif_time
 	)
+
+	if args.output_file:
+		with open(args.output_file, 'wt') as output_file:
+			provider.process_items(items, args.submit, output_file)
+	else:
+		provider.process_items(items, args.submit)

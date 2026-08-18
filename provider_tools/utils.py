@@ -1,16 +1,18 @@
+import datetime
+import glob
 import io
 import logging
 import os
+import urllib.parse
 import zlib
-from datetime import datetime
-from glob import iglob
-from urllib.parse import unquote, urljoin, urlparse
 
+import astropy.io.fits
+import dateutil.parser
 import htmllistparse
+import pyvo
 import requests
-from astropy.io import fits
-from dateutil.parser import ParserError, parse
-from pyvo.dal import tap
+import simplejson
+import slumber
 
 __all__ = [
 	'parse_date_time_string',
@@ -19,38 +21,73 @@ __all__ = [
 	'iter_tap_records',
 	'get_fits_header_from_local_file',
 	'get_fits_header_from_url',
+	'JsonSerializer',
 ]
 
 
-def parse_date_time_string(date_time_string, default=datetime(2000, 1, 1)):
-	"""Parse a date time like string and return a timestamp"""
+def parse_date_time_string(date_time_string, default=datetime.datetime(2000, 1, 1)):
+	"""Parse a date and time string into a datetime object.
+
+	Args:
+		date_time_string (str) : Date-time string to parse.
+		default (datetime.datetime) : Default datetime values to use for components
+			not specified in ``date_time_string``.
+
+	Returns:
+		datetime.datetime : The parsed datetime object.
+
+	Raises:
+		ValueError: If ``date_time_string`` is not a valid date-time string.
+	"""
 	try:
-		date_time = parse(date_time_string, default=default)
-	except ParserError as error:
+		date_time = dateutil.parser.parse(date_time_string, default=default)
+	except dateutil.parser.ParserError as error:
 		raise ValueError('Date time string "%s" is not a valid date: %s' % (date_time_string, error)) from error
 	else:
 		return date_time
 
 
 def iter_files(file_path_globs, min_modification_time=None):
-	"""Accept a list of glob file paths and return the individuals file path"""
+	"""Iterate over files matching the given glob patterns.
+
+	Args:
+		file_path_globs (Iterable[str]): Glob patterns used to find files. Patterns may
+			include recursive wildcards.
+		min_modification_time (datetime.datetime): If specified, only files modified at or after
+			this datetime are returned.
+
+	Yields:
+		Paths to files matching the given glob patterns and modification
+		time constraint.
+	"""
 
 	if min_modification_time is not None:
 		min_modification_time = min_modification_time.timestamp()
 
 	for file_path_glob in file_path_globs:
-		for file_path in iglob(file_path_glob, recursive=True):
-			if min_modification_time and os.path.getmtime(file_path) < min_modification_time:
+		for file_path in glob.iglob(file_path_glob, recursive=True):
+			if min_modification_time is not None and os.path.getmtime(file_path) < min_modification_time:
 				logging.info('Skipping FITS file "%s": file modification time earlier than specified min', file_path)
 			else:
 				yield file_path
 
 
 def iter_urls(base_urls, extension='.fits', min_modification_time=None, timeout=30):
-	"""Accept a list of base URLs and return the individuals file URLs"""
+	"""Iterate over files with the given extension found at the specified URLs.
 
+	Args:
+		base_urls (Iterable[str]): URLs of files or directory listings to search.
+		extension (str): File extension to include.
+		min_modification_time (datetime.datetime): If specified, only files modified at
+			or after this datetime are returned.
+		timeout (int): Timeout in seconds for fetching directory listings.
+
+	Yields:
+		URLs of files matching the given extension and modification time
+		constraint.
+	"""
 	for base_url in base_urls:
-		url_path = urlparse(unquote(base_url)).path
+		url_path = urllib.parse.urlparse(urllib.parse.unquote(base_url)).path
 
 		if url_path.endswith(extension):
 			yield base_url
@@ -59,10 +96,10 @@ def iter_urls(base_urls, extension='.fits', min_modification_time=None, timeout=
 			trash, listing = htmllistparse.fetch_listing(base_url, timeout=timeout)
 
 			for file_entry in listing:
-				url = urljoin(base_url, file_entry.name)
+				url = urllib.parse.urljoin(base_url, file_entry.name)
 
 				if file_entry.name.endswith(extension):
-					if min_modification_time is None or datetime(*file_entry.modified[:6]) >= min_modification_time:
+					if min_modification_time is None or datetime.datetime(*file_entry.modified[:6]) >= min_modification_time:
 						yield url
 					else:
 						logging.info('Skipping URL "%s": file modification time earlier than specified min', url)
@@ -75,8 +112,24 @@ def iter_urls(base_urls, extension='.fits', min_modification_time=None, timeout=
 					logging.debug('Skipping URL "%s": not a directory of a file with extension "%s"', url, extension)
 
 
-def iter_tap_records(service_url, table_name, max_count=1000, min_modification_time=None, exclude_granule_uid=[]):
-	"""Accept a service URL and a table name and return the records in the table"""
+def iter_tap_records(service_url, table_name, max_count=1000, min_modification_time=None, exclude_granule_uid=None):
+	"""Iterate over records from a TAP service.
+
+	Args:
+		service_url (str): URL of the TAP service.
+		table_name (str): Name of the table to query.
+		max_count (int): Maximum number of records to retrieve per query.
+		min_modification_time (datetime.datetime): If specified, only records
+			 modified at or after this datetime are returned.
+		exclude_granule_uid (list, optional): List of granule UIDs to exclude from the results.
+
+	Yields:
+		Records returned by the TAP service, excluding records whose granule
+		UID is in ``exclude_granule_uid``.
+	"""
+
+	if exclude_granule_uid is None:
+		exclude_granule_uid = []
 
 	# If the min_modification_time, add a WHERE clause to exclude older records
 	where_clause = ''
@@ -90,7 +143,7 @@ def iter_tap_records(service_url, table_name, max_count=1000, min_modification_t
 	while record_count is None:
 		logging.debug('Executing TAP query %s', query)
 		try:
-			result = tap.search(service_url, query)
+			result = pyvo.dal.tap.search(service_url, query)
 		except Exception as error:
 			logging.warning('TAP query failed (%s), retrying!', error)
 			continue
@@ -106,7 +159,7 @@ def iter_tap_records(service_url, table_name, max_count=1000, min_modification_t
 	while record_count > 0:
 		logging.debug('Executing TAP query %s', query % offset)
 		try:
-			result = tap.search(service_url, query % offset)
+			result = pyvo.dal.tap.search(service_url, query % offset)
 		except Exception as error:
 			logging.warning('TAP query failed (%s), retrying!', error)
 			continue
@@ -125,16 +178,40 @@ def iter_tap_records(service_url, table_name, max_count=1000, min_modification_t
 
 
 def get_fits_header_from_local_file(file_path, hdu_name_or_index=0):
-	"""Return the header of a local FITS file"""
+	"""Return the header of a local FITS file.
 
-	with fits.open(file_path) as hdus:
-		return hdus[hdu_name_or_index].header
+	Args:
+		file_path (str): Path to the FITS file.
+		hdu_name_or_index (str or int): Name or index of the HDU from which
+			 to retrieve the header.
+
+	Returns:
+		astropy.io.fits.header.Header: The FITS header from the specified HDU.
+	"""
+
+	return astropy.io.fits.getheader(file_path, hdu_name_or_index)
 
 
 def get_fits_header_from_url(
 	file_url, http_session, header_size=2880, header_offset=0, zipped=False, max_retry_count=3
 ):
-	"""Return the header of a FITS file URL"""
+	"""Return the header of a remote FITS file.
+
+	Args:
+		file_url (str): URL of the FITS file.
+		http_session (requests.Session): HTTP session used to download the file.
+		header_size (int): Number of bytes to download initially for the FITS header.
+		header_offset (int): Byte offset at which to start downloading the header.
+		zipped (bool): Whether the FITS file is gzip-compressed.
+		max_retry_count (int): Maximum number of attempts for each HTTP request.
+
+	Returns:
+		astropy.io.fits.header.Header: The FITS header read from the remote file.
+
+	Raises:
+		RuntimeError: If the FITS file cannot be downloaded after the maximum
+			number of retries.
+	"""
 
 	# If FITS file is zipped, the response content must be decompressed before writing it to the pseudo file
 	if zipped:
@@ -155,9 +232,12 @@ def get_fits_header_from_url(
 				response = http_session.get(
 					file_url, headers={'Range': 'Bytes=%s-%s' % (range_start, range_end - 1)}, timeout=(10, 30)
 				)
+				response.raise_for_status()
 				break
+			except requests.HTTPError as error:
+				logging.warning('Request error for %s : %s (Attempt %s/%s)', file_url, error, retry_count, max_retry_count)
 			except requests.exceptions.Timeout:
-				logging.warning('Timeout error on %s (Attempt %s/%s)', file_url, retry_count, max_retry_count)
+				logging.warning('Timeout error for %s (Attempt %s/%s)', file_url, retry_count, max_retry_count)
 			except requests.exceptions.SSLError as error:
 				logging.warning('SSL Handshake failed for %s : %s (Attempt %s/%s)', file_url, error, retry_count, max_retry_count)
 			except requests.exceptions.RequestException as error:
@@ -175,7 +255,7 @@ def get_fits_header_from_url(
 
 		# Try to read a full header from the pseudo file, if header is partial, an IOError will be raised
 		try:
-			fits_header = fits.Header.fromfile(fits_file)
+			fits_header = astropy.io.fits.Header.fromfile(fits_file)
 		except IOError:
 			# Header is partial, we need to read more from the file
 			# Per fits standard, fits file header size is always a multiple of 2880
@@ -191,3 +271,22 @@ def get_fits_header_from_url(
 				)
 
 			return fits_header
+
+
+class JsonSerializer(slumber.serialize.JsonSerializer):
+	"""JSON serializer that encodes date and time objects as ISO 8601 strings and
+	serializes NaN and infinity as null.
+	"""
+
+	def dumps(self, data):
+		return simplejson.dumps(data, ignore_nan=True, cls=DateTimeEncoder)
+
+
+class DateTimeEncoder(simplejson.JSONEncoder):
+	"""Encode a date and time object into an ISO 8601 string"""
+
+	def default(self, o):
+		if isinstance(o, (datetime.datetime, datetime.date, datetime.time)):
+			return o.isoformat()
+
+		return super().default(o)

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Script to extract metadata from the AIA level 2 archive and submit it to the SOLARNET Virtual Observatory"""
+"""Script to extract metadata from the ASPIICS level 2 archive and submit it to the SOLARNET Virtual Observatory"""
 
 import argparse
 import logging
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -16,37 +16,27 @@ from provider_tools import (
 	utils,
 )
 
-DATASET = 'HMI magnetogram level 1.5'
+DATASET = 'ASPIICS level 3'
 
 
 class DataLocation(DataLocationFromLocalFile):
 	# The base directory to build the default file_path
-	BASE_FILE_PATH = '/data/sdo/hmi_science_level1_5/magnetogram/'
+	BASE_FILE_PATH = '/data/p3sc_science_data/L3/v03/'
 
 	# The base file URL to build the default file_url (must end with a /)
-	BASE_FILE_URL = 'https://sdo.oma.be/data/hmi_science_level1_5/magnetogram/'
-
-	# The base thumbnail URL to build the default tumbnail_url, uses the fits2thumbnail service of the SVO to convert FITS to png
-	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/fits2thumbnail/?min_percentile=30&max_percentile=80&url='
-
-	def get_thumbnail_url(self):
-		# Use the SVO thumbnail service to convert the FITS file to png
-		return self.BASE_THUMBNAIL_URL + self.get_file_url()
+	BASE_FILE_URL = 'https://p3sc.oma.be/datarepfiles/L3/v03/'
 
 
 class Metadata(MetadataFromFitsHeader):
-	def get_date_beg(self):
-		return self.extract_field_value('date_obs')
+	def get_oid(self):
+		# Use the filename as the oid, it contains the version number and the date
+		return PurePosixPath(self.extract_field_value('filename')).stem
 
-	def get_date_end(self):
-		return self.extract_field_value('date_obs')
-
-	# TODO is there a better value for this
 	def get_wavemin(self):
-		return self.extract_field_value('wavelnth') / 10.0
+		return self.extract_field_value('WAVEMIN') / 10.0
 
 	def get_wavemax(self):
-		return self.extract_field_value('wavelnth') / 10.0
+		return self.extract_field_value('WAVEMAX') / 10.0
 
 
 class Provider(ProviderFromLocalFitsFile):
@@ -55,6 +45,16 @@ class Provider(ProviderFromLocalFitsFile):
 	DATA_LOCATION_CLASS = DataLocation
 
 	HDU_NAME_OR_INDEX = 0
+
+	BASE_THUMBNAIL_URL = 'https://p3sc.oma.be/datarepfiles/L3_png/v03'
+
+	def get_resource_data(self, file_path):
+		# The thumbnail URL requires the orbit_id in the metadata
+		resource_data = super().get_resource_data(file_path)
+		resource_data['data_location']['thumbnail_url'] = (
+			f'{self.BASE_THUMBNAIL_URL}/orbit_{int(resource_data["orbit_id"]):04d}/{PurePosixPath(resource_data["filename"]).stem}.png'
+		)
+		return resource_data
 
 
 if __name__ == '__main__':
@@ -98,12 +98,6 @@ if __name__ == '__main__':
 		nargs='+',
 		help='Path to a FITS file to process (also accept glob pattern)',
 	)
-	parser.add_argument(
-		'fits_files',
-		metavar='FITS FILE',
-		nargs='+',
-		help='Path to a FITS file to process (also accept glob pattern)',
-	)
 	args = parser.parse_args()
 
 	# Setup the logging
@@ -115,7 +109,7 @@ if __name__ == '__main__':
 	try:
 		provider = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
-		logging.critical('Could not initialise provider: %s', error)
+		logging.critical('Could not create exractor: %s', error)
 		raise
 
 	items = utils.iter_files(args.fits_files, args.min_modif_time)

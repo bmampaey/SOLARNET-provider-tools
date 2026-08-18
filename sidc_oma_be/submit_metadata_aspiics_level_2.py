@@ -10,8 +10,8 @@ from pathlib import Path, PurePosixPath
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from provider_tools import (
 	DataLocationFromLocalFile,
-	ExtractorFromLocalFitsFile,
 	MetadataFromFitsHeader,
+	ProviderFromLocalFitsFile,
 	RESTfulApi,
 	utils,
 )
@@ -30,22 +30,23 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/fits2thumbnail/?max_percentile=99&hdu=0&url='
 
 	def get_thumbnail_url(self):
-		"""Override to return the proper URL for the thumbnail"""
+		# Use the SVO thumbnail service to convert the FITS file to png
 		return self.BASE_THUMBNAIL_URL + self.get_file_url()
 
 
 class Metadata(MetadataFromFitsHeader):
-	def get_field_oid(self):
-		return PurePosixPath(self.get_field_value('filename')).stem
+	def get_oid(self):
+		# Use the filename as the oid, it contains the version number and the date
+		return PurePosixPath(self.extract_field_value('filename')).stem
 
-	def get_field_wavemin(self):
-		return float(self.fits_header['WAVEMIN']) / 10.0
+	def get_wavemin(self):
+		return self.extract_field_value('WAVEMIN') / 10.0
 
-	def get_field_wavemax(self):
-		return float(self.fits_header['WAVEMAX']) / 10.0
+	def get_wavemax(self):
+		return self.extract_field_value('WAVEMAX') / 10.0
 
 
-class Extractor(ExtractorFromLocalFitsFile):
+class Provider(ProviderFromLocalFitsFile):
 	METADATA_CLASS = Metadata
 
 	DATA_LOCATION_CLASS = DataLocation
@@ -55,7 +56,9 @@ class Extractor(ExtractorFromLocalFitsFile):
 
 if __name__ == '__main__':
 	# Get the arguments
-	parser = argparse.ArgumentParser(description='Submit metadata from a FITS file to the SVO')
+	parser = argparse.ArgumentParser(
+		description='Extract metadata from FITS files and submit them to the SVO for dataset "%s"' % DATASET
+	)
 	parser.add_argument(
 		'--verbose',
 		'-v',
@@ -64,27 +67,33 @@ if __name__ == '__main__':
 		help='Set the logging level (default is INFO)',
 	)
 	parser.add_argument(
-		'fits_files',
-		metavar='FITS FILE',
-		nargs='+',
-		help='A FITS file to submit to the SVO (also accept glob pattern)',
-	)
-	parser.add_argument(
 		'--auth-file',
 		'-a',
 		default='./.svo_auth',
-		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
+		help='File containing authentication credentials for the SVO (in the format email:API key)',
 	)
 	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
-		help='Only submit file if the modification time is after that date',
+		help='Only extract the metadata if the modification time is later than the minimum',
+	)
+	parser.add_argument(
+		'--submit',
+		default=True,
+		action=argparse.BooleanOptionalAction,
+		help='If set (the default), submit the metadata to the server; if negated with --no-submit, only print the metadata',
 	)
 	parser.add_argument(
 		'--output-file',
 		'-o',
-		help='JSONL file for the output, if not provided will output to stdout',
+		help='Path to a JSONL file to which the metadata will be written, instead of printed',
+	)
+	parser.add_argument(
+		'fits_files',
+		metavar='FITS FILE',
+		nargs='+',
+		help='Path to a FITS file to process (also accept glob pattern)',
 	)
 	args = parser.parse_args()
 
@@ -95,13 +104,15 @@ if __name__ == '__main__':
 	)
 
 	try:
-		exractor = Extractor(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
+		provider = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
 		logging.critical('Could not create exractor: %s', error)
 		raise
 
+	items = utils.iter_files(args.fits_files, args.min_modif_time)
+
 	if args.output_file:
 		with open(args.output_file, 'wt') as output_file:
-			exractor.write_metadata(utils.iter_files(args.fits_files, args.min_modif_time), output_file)
+			provider.process_items(items, args.submit, output_file)
 	else:
-		exractor.write_metadata(utils.iter_files(args.fits_files, args.min_modif_time), sys.stdout)
+		provider.process_items(items, args.submit)

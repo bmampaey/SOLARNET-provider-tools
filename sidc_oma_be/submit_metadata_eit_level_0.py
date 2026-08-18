@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """Script to extract metadata from the EIT archive and submit it to the SOLARNET Virtual Observatory"""
 
-import sys
 import argparse
 import logging
-from pathlib import Path
+import sys
 from datetime import timedelta
+from pathlib import Path
 
 # HACK to make sure the provider_tools package is findable
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from provider_tools import (
-	MetadataFromFitsHeader,
 	DataLocationFromLocalFile,
-	RESTfulApi,
+	MetadataFromFitsHeader,
 	ProviderFromLocalFitsFile,
+	RESTfulApi,
 	utils,
 )
-
 
 DATASET = 'EIT level 0'
 
@@ -32,7 +31,7 @@ class DataLocation(DataLocationFromLocalFile):
 	BASE_THUMBNAIL_URL = 'https://solarnet.oma.be/service/fits2thumbnail/?max_percentile=99.5&url='
 
 	def get_thumbnail_url(self):
-		"""Override to return the proper URL for the thumbnail"""
+		# Use the SVO thumbnail service to convert the FITS file to png
 		return self.BASE_THUMBNAIL_URL + self.get_file_url()
 
 
@@ -54,7 +53,7 @@ class Metadata(MetadataFromFitsHeader):
 			else:
 				self.fits_header.setdefault(key.strip().replace(' ', '_'), value.strip().strip("'"))
 
-	def get_field_fits_header(self):
+	def get_fits_header(self):
 		"""Return the value of the fits_header metadata field"""
 		return self.fits_header_string
 
@@ -72,31 +71,31 @@ class Metadata(MetadataFromFitsHeader):
 			logging.info('Value of keyword %s is not a float', fits_keyword)
 			return None
 
-	def get_field_shutter_close_time(self):
+	def get_shutter_close_time(self):
 		return self.get_duration_from_fits_header('SHUTTER_CLOSE_TIME')
 
-	def get_field_commanded_exposure_time(self):
+	def get_commanded_exposure_time(self):
 		return self.get_duration_from_fits_header('COMMANDED_EXPOSURE_TIME')
 
-	def get_field_exptime(self):
-		commanded_exposure_time = self.get_field_value('commanded_exposure_time')
-		shutter_close_time = self.get_field_value('shutter_close_time')
+	def get_exptime(self):
+		commanded_exposure_time = self.extract_field_value('commanded_exposure_time')
+		shutter_close_time = self.extract_field_value('shutter_close_time')
 		if commanded_exposure_time is not None and shutter_close_time is not None:
 			return commanded_exposure_time + shutter_close_time
 		else:
 			return None
 
-	def get_field_date_beg(self):
-		return self.get_field_value('corrected_date_obs')
+	def get_date_beg(self):
+		return self.extract_field_value('corrected_date_obs')
 
-	def get_field_date_end(self):
-		return self.get_field_value('date_beg') + timedelta(seconds=self.get_field_value('exptime'))
+	def get_date_end(self):
+		return self.get_date_beg() + timedelta(seconds=self.extract_field_value('exptime'))
 
-	def get_field_wavemin(self):
-		return self.get_field_value('wavelnth') / 10.0
+	def get_wavemin(self):
+		return self.extract_field_value('wavelnth') / 10.0
 
-	def get_field_wavemax(self):
-		return self.get_field_value('wavelnth') / 10.0
+	def get_wavemax(self):
+		return self.extract_field_value('wavelnth') / 10.0
 
 
 class Provider(ProviderFromLocalFitsFile):
@@ -107,29 +106,45 @@ class Provider(ProviderFromLocalFitsFile):
 
 if __name__ == '__main__':
 	# Get the arguments
-	parser = argparse.ArgumentParser(description='Submit metadata from a FITS file to the SVO')
-	parser.add_argument(
-		'--verbose', '-v', choices=['DEBUG', 'INFO', 'ERROR'], default='INFO', help='Set the logging level (default is INFO)'
+	parser = argparse.ArgumentParser(
+		description='Extract metadata from FITS files and submit them to the SVO for dataset "%s"' % DATASET
 	)
 	parser.add_argument(
-		'fits_files', metavar='FITS FILE', nargs='+', help='A FITS file to submit to the SVO (also accept glob pattern)'
+		'--verbose',
+		'-v',
+		choices=['DEBUG', 'INFO', 'ERROR'],
+		default='INFO',
+		help='Set the logging level (default is INFO)',
 	)
 	parser.add_argument(
 		'--auth-file',
 		'-a',
 		default='./.svo_auth',
-		help='A file containing the username (email) and API key separated by a colon of the owner of the metadata',
-	)
-	parser.add_argument(
-		'--dry-run', '-f', action='store_true', help='Do not submit data but print what data would be submitted instead'
+		help='File containing authentication credentials for the SVO (in the format email:API key)',
 	)
 	parser.add_argument(
 		'--min-modif-time',
 		'-m',
 		type=utils.parse_date_time_string,
-		help='Only submit file if the modification time is after that date',
+		help='Only extract the metadata if the modification time is later than the minimum',
 	)
-
+	parser.add_argument(
+		'--submit',
+		default=True,
+		action=argparse.BooleanOptionalAction,
+		help='If set (the default), submit the metadata to the server; if negated with --no-submit, only print the metadata',
+	)
+	parser.add_argument(
+		'--output-file',
+		'-o',
+		help='Path to a JSONL file to which the metadata will be written, instead of printed',
+	)
+	parser.add_argument(
+		'fits_files',
+		metavar='FITS FILE',
+		nargs='+',
+		help='Path to a FITS file to process (also accept glob pattern)',
+	)
 	args = parser.parse_args()
 
 	# Setup the logging
@@ -138,7 +153,13 @@ if __name__ == '__main__':
 	try:
 		provider = Provider(RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'), DATASET)
 	except Exception as error:
-		logging.critical('Could not create provider: %s', error)
+		logging.critical('Could not initialise provider: %s', error)
 		raise
 
-	provider.submit_new_metadata(utils.iter_files(args.fits_files, args.min_modif_time), args.dry_run)
+	items = utils.iter_files(args.fits_files, args.min_modif_time)
+
+	if args.output_file:
+		with open(args.output_file, 'wt') as output_file:
+			provider.process_items(items, args.submit, output_file)
+	else:
+		provider.process_items(items, args.submit)
