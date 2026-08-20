@@ -84,10 +84,10 @@ if __name__ == '__main__':
 		help='Only extract the metadata if the modification time is later than the minimum',
 	)
 	parser.add_argument(
-		'--submit',
-		default=True,
-		action=argparse.BooleanOptionalAction,
-		help='If set (the default), submit the metadata to the server; if negated with --no-submit, only print the metadata',
+		'--no-submit',
+		dest='submit',
+		action='store_false',
+		help='Do not submit the metadata to the server; only print it',
 	)
 	parser.add_argument(
 		'--output-file',
