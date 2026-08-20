@@ -8,9 +8,9 @@ __all__ = ['ProviderFromTapRecord']
 class ProviderFromTapRecord(Provider):
 	"""Extract the metadata and data_location resource payloads for TAP records.
 
-	Class attributes:
-		METADATA_CLASS: Class used to build the metadata resource.
-		DATA_LOCATION_CLASS: Class used to build the data_location resource.
+	Attributes:
+		METADATA_CLASS (MetadataFromTapRecord): A subclass of Metadata used to build the metadata resource.
+		DATA_LOCATION_CLASS (DataLocationFromTapRecord): A subclass of DataLocation used to build the data_location resource.
 	"""
 
 	METADATA_CLASS = MetadataFromTapRecord
@@ -22,11 +22,11 @@ class ProviderFromTapRecord(Provider):
 
 		Args:
 			tap_record (Mapping): Values of the table record containing at least the keys
-			granule_uid, time_min, time_max, spectral_range_min, spectral_range_max
+				`granule_uid`, `time_min`, `time_max`, `spectral_range_min`, `spectral_range_max`
 
 		Returns:
-			dict: A resource payload suitable for :meth:`create`, containing
-			both the metadata fields and a nested ``data_location`` payload.
+			(dict): A resource payload containing
+				both the metadata fields and a nested `data_location` payload.
 
 		Raises:
 			Exception: Any error raised while fetching or parsing the FITS

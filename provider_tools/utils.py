@@ -29,15 +29,15 @@ def parse_date_time_string(date_time_string, default=datetime.datetime(2000, 1, 
 	"""Parse a date and time string into a datetime object.
 
 	Args:
-		date_time_string (str) : Date-time string to parse.
-		default (datetime.datetime) : Default datetime values to use for components
-			not specified in ``date_time_string``.
+		date_time_string (str): Date-time string to parse.
+		default (datetime.datetime): Default datetime values to use for components
+			not specified in `date_time_string`.
 
 	Returns:
-		datetime.datetime : The parsed datetime object.
+		(datetime.datetime): The parsed datetime object.
 
 	Raises:
-		ValueError: If ``date_time_string`` is not a valid date-time string.
+		ValueError: If `date_time_string` is not a valid date-time string.
 	"""
 	try:
 		date_time = dateutil.parser.parse(date_time_string, default=default)
@@ -57,8 +57,8 @@ def iter_files(file_path_globs, min_modification_time=None):
 			this datetime are returned.
 
 	Yields:
-		Paths to files matching the given glob patterns and modification
-		time constraint.
+		(str): Paths to files matching the given glob patterns and modification
+			time constraint.
 	"""
 
 	if min_modification_time is not None:
@@ -83,8 +83,8 @@ def iter_urls(base_urls, extension='.fits', min_modification_time=None, timeout=
 		timeout (int): Timeout in seconds for fetching directory listings.
 
 	Yields:
-		URLs of files matching the given extension and modification time
-		constraint.
+		(str): URLs of files matching the given extension and modification time
+			constraint.
 	"""
 	for base_url in base_urls:
 		url_path = urllib.parse.urlparse(urllib.parse.unquote(base_url)).path
@@ -124,8 +124,8 @@ def iter_tap_records(service_url, table_name, max_count=1000, min_modification_t
 		exclude_granule_uid (list, optional): List of granule UIDs to exclude from the results.
 
 	Yields:
-		Records returned by the TAP service, excluding records whose granule
-		UID is in ``exclude_granule_uid``.
+		(Mapping): Records returned by the TAP service, excluding records whose granule
+			UID is in `exclude_granule_uid`.
 	"""
 
 	if exclude_granule_uid is None:
@@ -186,7 +186,7 @@ def get_fits_header_from_local_file(file_path, hdu_name_or_index=0):
 			 to retrieve the header.
 
 	Returns:
-		astropy.io.fits.header.Header: The FITS header from the specified HDU.
+		(astropy.io.fits.header.Header): The FITS header from the specified HDU.
 	"""
 
 	return astropy.io.fits.getheader(file_path, hdu_name_or_index)
@@ -206,7 +206,7 @@ def get_fits_header_from_url(
 		max_retry_count (int): Maximum number of attempts for each HTTP request.
 
 	Returns:
-		astropy.io.fits.header.Header: The FITS header read from the remote file.
+		(astropy.io.fits.header.Header): The FITS header read from the remote file.
 
 	Raises:
 		RuntimeError: If the FITS file cannot be downloaded after the maximum

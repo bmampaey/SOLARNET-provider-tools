@@ -30,7 +30,7 @@ class MetadataFromFitsHeader(Metadata):
 			keywords (list): Keyword definitions describing the metadata
 				fields to extract, as expected by :class:`Metadata`.
 			fits_header (astropy.io.fits.Header): The FITS header (e.g. an
-				``astropy.io.fits.Header``) to extract field values from.
+				`astropy.io.fits.Header`) to extract field values from.
 		"""
 		super().__init__(keywords)
 		self.fits_header = fits_header
@@ -42,7 +42,7 @@ class MetadataFromFitsHeader(Metadata):
 			field_name (str): The name of the resource field.
 
 		Returns:
-			object: The field value converted to the keyword type.
+			(Any): The field value converted to the keyword type.
 
 		Raises:
 			KeyError: If no keyword correspond to the field name.
@@ -78,10 +78,10 @@ class MetadataFromFitsHeader(Metadata):
 		override this method.
 
 		Returns:
-			str: The ``date_beg`` field formatted as ``%Y%m%d%H%M%S``.
+			(str): The `date_beg` field formatted as `%Y%m%d%H%M%S`.
 
 		Raises:
-			ValueError: If ``date_beg`` could not be resolved, since the
+			ValueError: If `date_beg` could not be resolved, since the
 				identifier cannot be computed without it.
 		"""
 		# By default use the date of observation as there is usually no more than 1 observation per second
@@ -94,8 +94,8 @@ class MetadataFromFitsHeader(Metadata):
 		"""Return the full FITS header serialized as a string.
 
 		Returns:
-			str: The FITS header converted to its string representation,
-			with leading/trailing whitespace stripped.
+			(str): The FITS header converted to its string representation,
+				with leading/trailing whitespace stripped.
 		"""
 		# Convert the fits_header to string for the metadata resources that require it
 		return self.fits_header.tostring().strip()

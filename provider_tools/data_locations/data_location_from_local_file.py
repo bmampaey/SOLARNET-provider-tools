@@ -9,9 +9,9 @@ __all__ = ['DataLocationFromLocalFile']
 class DataLocationFromLocalFile(DataLocation):
 	"""Build a data_location payload from a local file.
 
-	Class attributes:
-		BASE_FILE_PATH: Base path used to derive the relative file path.
-		BASE_FILE_URL: Base URL used to build the file URL.
+	Attributes:
+		BASE_FILE_PATH (str): Base path used to derive the relative file path.
+		BASE_FILE_URL (str): Base URL used to build the file URL.
 	"""
 
 	# The base file path to build the default file_path
@@ -25,9 +25,15 @@ class DataLocationFromLocalFile(DataLocation):
 
 		Args:
 			local_file (str): Path to the file on the local filesystem.
-			**kwargs: Additional keyword arguments forwarded to
-				:meth:`DataLocation.__init__(file_url, file_size, file_path,
-				thumbnail_url, offline) <DataLocation.__init__>`
+			**kwargs (Any): Additional keyword arguments forwarded to
+				[`DataLocation.__init__`][provider_tools.data_locations.DataLocation.__init__].
+				Accepted keys include:
+
+				* **file_url** `str`: Publicly accessible URL of the file.
+				* **file_size** `int`: Size of the file, in bytes.
+				* **file_path** `str`: Path of the file, relative to some base location.
+				* **thumbnail_url** `str`: URL of a thumbnail image representing the file.
+				* **offline** `bool`: Whether the file is not accessible to users.
 		"""
 
 		self.local_file = local_file
@@ -36,15 +42,15 @@ class DataLocationFromLocalFile(DataLocation):
 	def get_file_url(self):
 		"""Return the public URL for the file.
 
-		If ``self.file_url`` was not explicitly provided, it is built by
-		joining the class-level ``BASE_FILE_URL`` with the relative file
+		If `self.file_url` was not explicitly provided, it is built by
+		joining the class-level `BASE_FILE_URL` with the relative file
 		path.
 
 		Returns
 			str: The public URL of the file.
 
 		Raises:
-			ValueError: If neither ``self.file_url`` nor ``BASE_FILE_URL`` is set.
+			ValueError: If neither `self.file_url` nor `BASE_FILE_URL` is set.
 		"""
 
 		if self.file_url is not None:
@@ -57,14 +63,14 @@ class DataLocationFromLocalFile(DataLocation):
 	def get_file_size(self):
 		"""Return the size of the file, in bytes.
 
-		If ``self.file_size`` was not explicitly provided, it is read
-		from disk using ``os.path.getsize`` on ``self.local_file``.
+		If `self.file_size` was not explicitly provided, it is read
+		from disk using `os.path.getsize` on `self.local_file`.
 
 		Returns:
-			int: The size of the file, in bytes.
+			(int): The size of the file, in bytes.
 
 		Raises:
-			ValueError: If neither ``self.file_size`` nor ``self.local_file`` are set.
+			ValueError: If neither `self.file_size` nor `self.local_file` are set.
 		"""
 
 		if self.file_size is not None:
@@ -77,15 +83,15 @@ class DataLocationFromLocalFile(DataLocation):
 	def get_file_path(self):
 		"""Return the file path relative to the configured base path.
 
-		If ``self.file_path`` was not explicitly provided,
-		it is computed by removing the class-level ``BASE_FILE_PATH`` prefix
-		from the absolute path of ``self.local_file``.
+		If `self.file_path` was not explicitly provided,
+		it is computed by removing the class-level `BASE_FILE_PATH` prefix
+		from the absolute path of `self.local_file`.
 
 		Returns:
-			str: The relative file path.
+			(str): The relative file path.
 
 		Raises:
-			ValueError: If neither ``self.file_path`` nor ``self.local_file`` are set.
+			ValueError: If neither `self.file_path` nor `self.local_file` are set.
 		"""
 
 		if self.file_path is not None:

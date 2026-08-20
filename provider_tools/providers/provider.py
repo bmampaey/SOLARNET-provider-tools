@@ -9,16 +9,16 @@ class Provider:
 	"""Base class for extracting the metadata and data_location resource payloads
 	for a dataset and submit them to the SVO RESTful API.
 
-	Subclasses must implement :meth:`get_resource_data` to define how
-	the metadata and data_location resources paylods are extracted from
-	the source data.
+	Subclasses must implement [`get_resource_data`][provider_tools.providers.Provider.get_resource_data]
+	to define how the metadata and data_location resources paylods
+	are extracted from the source data.
 	"""
 
 	def __init__(self, restful_api, dataset_name, logger=None):
 		"""Initialize the provider and fetch dataset and keywords information from SVO.
 
 		Args:
-			restful_api: A initialized RESTfulApi with proper authentication
+			restful_api (RESTfulApi): A initialized RESTfulApi with proper authentication
 				to make requests to the SVO (e.g. dataset, keyword, metadata, data_location endpoints).
 			dataset_name (str): Name of the dataset to operate on. Used to
 				look up the dataset resource, its keywords, and to build the
@@ -41,7 +41,7 @@ class Provider:
 			dataset_name (str): Name of the dataset to look up.
 
 		Returns:
-			dict: The dataset resource returned by the API.
+			(dict): The dataset resource returned by the API.
 
 		Raises:
 			RuntimeError: If the API request fails for any reason.
@@ -59,7 +59,7 @@ class Provider:
 				be retrieved.
 
 		Returns:
-			list: The list of all keyword objects associated with the dataset.
+			(list): The list of all keyword objects associated with the dataset.
 
 		Raises:
 			RuntimeError: If the API request fails for any reason.
@@ -73,11 +73,11 @@ class Provider:
 		"""Look up an existing metadata resource by its identifier.
 
 		Args:
-			oid: The metadata identifier to search for.
+			oid (str): The metadata identifier to search for.
 
 		Returns:
-			dict or None: The matching metadata resource, or ``None`` if no
-			resource with the given ``oid`` exists for this dataset.
+			(dict | None): The matching metadata resource, or `None` if no
+				resource with the given `oid` exists for this dataset.
 
 		Raises:
 			RuntimeError: If the API request fails for any reason.
@@ -100,9 +100,9 @@ class Provider:
 				data_location resources belonging to this dataset.
 
 		Returns:
-			dict or None: The matching data_location resource, or ``None``
-			if no resource with the given ``file_url`` exists for this
-			dataset.
+			(dict | None): The matching data_location resource, or `None`
+				if no resource with the given `file_url` exists for this
+				dataset.
 
 		Raises:
 			RuntimeError: If the API request fails for any reason.
@@ -125,7 +125,7 @@ class Provider:
 				metadata resource endpoint.
 
 		Returns:
-			dict: The newly created metadata resource, as returned by the API.
+			(dict): The newly created metadata resource, as returned by the API.
 
 		Raises:
 			RuntimeError: If the API request fails for any reason.
@@ -155,18 +155,18 @@ class Provider:
 
 		Args:
 			resource_data (dict): Fields to update on the metadata resource.
-				If it contains an ``oid`` key, that value is used as the
+				If it contains an `oid` key, that value is used as the
 				resource identifier and removed from the payload before
-				sending. A copy is made so the caller's dict is not mutated.
-			oid: Identifier of the resource to update. Only used if
-				``resource_data`` does not already contain an ``oid`` key.
+				sending. A copy is made to prevent mutating the input dictionary.
+			oid (str): Identifier of the resource to update. Only used if
+				`resource_data` does not already contain an `oid` key.
 
 		Returns:
-			dict: The updated metadata resource, as returned by the API.
+			(dict): The updated metadata resource, as returned by the API.
 
 		Raises:
-			ValueError: If no ``oid`` is available from either
-				``resource_data`` or the ``oid`` argument.
+			ValueError: If no `oid` is available from either
+				`resource_data` or the `oid` argument.
 			RuntimeError: If the API request fails for any reason.
 		"""
 		# Remove the oid from the metadata but copy it first as to not modify the input
@@ -188,11 +188,12 @@ class Provider:
 		Must be implemented by subclasses.
 
 		Args:
-			item: The item to process (a URL, file path, TAP record, etc.,
+			item (Any): The item to process (a URL, file path, TAP record, etc.,
 				depending on the subclass).
 
 		Returns:
-			dict: The metadata and data_location resource payload.
+			(dict): A resource payload containing
+				both the metadata fields and a nested `data_location` payload.
 		"""
 		raise NotImplementedError
 
@@ -200,8 +201,8 @@ class Provider:
 		"""Extract, print, and optionally submit resource data for a list of items.
 
 		For each item, extract the metadata and data_location payloads and
-		print them as a single line of JSON to ``output`` (or standard
-		output if ``output`` is not provided). If ``submit`` is True, also
+		print them as a single line of JSON to `output` (or standard
+		output if `output` is not provided). If `submit` is True, also
 		create the corresponding metadata and data_location resource on the
 		SVO API.
 		Errors for individual items are logged and do not stop processing
@@ -212,12 +213,11 @@ class Provider:
 				records, etc., depending on the subclass).
 			submit (bool): If True (the default), also submit each resource
 				payload to the SVO API.
-			output: A writable file-like object that JSON-serialized
+			output(TextIO): A writable file-like object that JSON-serialized
 				resource payloads are printed to, one per line. Defaults to
-				standard output. Non-JSON-native values (e.g. dates) are
-				serialized using ``str()`` as a fallback.
+				standard output.
 		Returns:
-			None
+			(None)
 		"""
 
 		serializer = JsonSerializer()

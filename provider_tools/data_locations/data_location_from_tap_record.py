@@ -11,11 +11,18 @@ class DataLocationFromTapRecord(DataLocation):
 
 		Args:
 			tap_record (Mapping): A TAP record (or record-like mapping) potentially
-				containing the fields ``access_url``, ``access_estsize``,
-				``file_name``, and ``thumbnail_url``.
-			**kwargs: Additional keyword arguments forwarded to
-				:meth:`DataLocation.__init__(file_url, file_size, file_path,
-				thumbnail_url, offline) <DataLocation.__init__>`
+				containing the fields `access_url`, `access_estsize`,
+				`file_name`, and `thumbnail_url`.
+			**kwargs (Any): Additional keyword arguments forwarded to
+				[`DataLocation.__init__`][provider_tools.data_locations.DataLocation.__init__].
+				Accepted keys include:
+
+				* **file_url** `str`: Publicly accessible URL of the file.
+				* **file_size** `int`: Size of the file, in bytes.
+				* **file_path** `str`: Path of the file, relative to some base location.
+				* **thumbnail_url** `str`: URL of a thumbnail image representing the file.
+				* **offline** `bool`: Whether the file is not accessible to users.
+
 		"""
 		self.tap_record = tap_record
 		super().__init__(**kwargs)
@@ -23,15 +30,15 @@ class DataLocationFromTapRecord(DataLocation):
 	def get_file_url(self):
 		"""Return the public URL for the file.
 
-		If ``self.file_url`` was not explicitly provided,
-		it returns the TAP record's ``access_url``.
+		If `self.file_url` was not explicitly provided,
+		it returns the TAP record's `access_url`.
 
 		Returns:
-			str: The file URL.
+			(str): The file URL.
 
 		Raises:
-			ValueError: If ``self.file_url`` is not set and the TAP record does
-				not define ``access_url``.
+			ValueError: If `self.file_url` is not set and the TAP record does
+				not define `access_url`.
 		"""
 		if self.file_url is not None:
 			return self.file_url
@@ -43,15 +50,15 @@ class DataLocationFromTapRecord(DataLocation):
 	def get_file_size(self):
 		"""Return the size of the file, in bytes.
 
-		If ``self.file_size`` was not explicitly provided,
-		it returns the TAP record's ``access_estsize``.
+		If `self.file_size` was not explicitly provided,
+		it returns the TAP record's `access_estsize`.
 
 		Returns:
-			int: The estimated size of the file, in bytes.
+			(int): The estimated size of the file, in bytes.
 
 		Raises:
-			ValueError: If ``self.file_size`` is not set and the TAP record does
-				not define ``access_estsize``.
+			ValueError: If `self.file_size` is not set and the TAP record does
+				not define `access_estsize`.
 		"""
 		if self.file_size is not None:
 			return self.file_size
@@ -63,15 +70,15 @@ class DataLocationFromTapRecord(DataLocation):
 	def get_file_path(self):
 		"""Return the relative file path.
 
-		If ``self.file_path`` was not explicitly provided,
-		it returns the TAP record's ``file_name``.
+		If `self.file_path` was not explicitly provided,
+		it returns the TAP record's `file_name`.
 
 		Returns:
-			str: The relative file path.
+			(str): The relative file path.
 
 		Raises:
-			ValueError: If ``self.file_path`` is not set and the TAP record does
-				not define ``file_name``.
+			ValueError: If `self.file_path` is not set and the TAP record does
+				not define `file_name`.
 		"""
 		if self.file_path is not None:
 			file_path = self.file_path
@@ -84,11 +91,11 @@ class DataLocationFromTapRecord(DataLocation):
 		return file_path.lstrip('./')
 
 	def get_thumbnail_url(self):
-		"""Returns the thumbnail URL, falling back to the TAP record's ``thumbnail_url``.
+		"""Returns the thumbnail URL, falling back to the TAP record's `thumbnail_url`.
 
 		Returns:
-			(str or None): The thumbnail URL, or ``None`` if neither ``self.thumbnail_url``
-			nor the TAP record's ``thumbnail_url`` field is available.
+			(str | None): The thumbnail URL, or `None` if neither `self.thumbnail_url`
+				nor the TAP record's `thumbnail_url` field is available.
 		"""
 		if self.thumbnail_url is not None:
 			return self.thumbnail_url

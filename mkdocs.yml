@@ -1,0 +1,44 @@
+site_name: SOLARNET Virtual Observatory provider_tools package
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            members_order: source
+            show_root_heading: false
+            show_root_full_path: false
+            heading_level: 2
+            inherited_members: true
+            docstring_section_style: list
+
+
+nav:
+  - Home: index.md
+  - Code Reference:
+    - Overview: code_reference/overview.md
+    - Providers Module: code_reference/providers.md
+    - Data Locations Module: code_reference/data_locations.md
+    - Metadatas Module: code_reference/metadatas.md
+    - SVO RESTful API: code_reference/restful_api.md
+    - Utilities: code_reference/utils.md

@@ -16,14 +16,14 @@ class RESTfulApi(slumber.API):
 
 	Args:
 		username (str, optional): SVO username. Cannot be specified when
-			``auth_file`` is specified.
+			`auth_file` is specified.
 		api_key (str, optional): SVO API key. Cannot be specified when
-			``auth_file`` is specified.
+			`auth_file` is specified.
 		auth_file (str, optional): Path to a file containing the SVO username
-			and API key in ``username:api_key`` format. Cannot be specified when
-			``username`` and ``api_key`` are specified.
+			and API key in `username:api_key` format. Cannot be specified when
+			`username` and `api_key` are specified.
 		debug (bool, optional): Whether to enable HTTP connection debugging.
-			Defaults to ``False``.
+			Defaults to `False`.
 	"""
 
 	def __init__(self, username=None, api_key=None, auth_file=None, debug=False):
@@ -57,11 +57,11 @@ class RESTfulApi(slumber.API):
 			auth_file (str): Path to the authentication file.
 
 		Returns:
-			tuple[str, str]: A tuple containing the username and API key.
+			(tuple[str, str]): A tuple containing the username and API key.
 
 		Raises:
 			RuntimeError: If the authentication file cannot be read or does
-				not have the expected ``username:api_key`` format.
+				not have the expected `username:api_key` format.
 		"""
 		try:
 			with open(auth_file, 'r') as file:
@@ -85,7 +85,7 @@ class RESTfulApi(slumber.API):
 				should be converted to text.
 
 		Returns:
-			str: The exception message, optionally followed by the response
+			(str): The exception message, optionally followed by the response
 				JSON or text content.
 		"""
 		text = str(exception)
@@ -113,7 +113,7 @@ class RESTfulApi(slumber.API):
 			resource_uri (str): URI identifying the resource to retrieve.
 
 		Returns:
-			object: The resource corresponding to ``resource_uri``.
+			(Any): The resource corresponding to `resource_uri`.
 		"""
 		return getattr(self, resource_uri)
 

@@ -42,7 +42,7 @@ class MetadataFromTapRecord(Metadata):
 			field_name (str): The name of the resource field.
 
 		Returns:
-			object: The field value converted to the keyword type.
+			(Any): The field value converted to the keyword type.
 
 		Raises:
 			KeyError: If no keyword correspond to teh field name.
@@ -74,8 +74,8 @@ class MetadataFromTapRecord(Metadata):
 		"""Return the unique observation identifier from the TAP record.
 
 		Returns:
-			The value of the ``granule_uid`` field, which serves as the
-			unique observation identifier in EPN-TAP.
+			(str): The value of the `granule_uid` field, which serves as the
+				unique observation identifier in EPN-TAP.
 		"""
 		# In EPN-TAP the granule_id is the unique id of observation
 		return self.extract_field_value('granule_uid')
@@ -84,8 +84,8 @@ class MetadataFromTapRecord(Metadata):
 		"""Return the observation start date from the TAP record.
 
 		Returns:
-			datetime.datetime: The ``time_min`` field, converted from
-			Julian date to a UTC datetime.
+			(datetime.datetime): The `time_min` field, converted from
+				Julian date to a UTC datetime.
 		"""
 		# The time_min is in julian days, so convert it to UTC
 		return self.jd_to_datetime(self.extract_field_value('time_min'))
@@ -94,8 +94,8 @@ class MetadataFromTapRecord(Metadata):
 		"""Return the observation end date from the TAP record.
 
 		Returns:
-			datetime.datetime: The ``time_max`` field, converted from
-			Julian date to a UTC datetime.
+			(datetime.datetime): The `time_max` field, converted from
+				Julian date to a UTC datetime.
 		"""
 		# The time_max is in julian days, so convert it to UTC
 		return self.jd_to_datetime(self.extract_field_value('time_max'))
@@ -104,9 +104,9 @@ class MetadataFromTapRecord(Metadata):
 		"""Return the minimum wavelength of the observation, in nanometers.
 
 		Returns:
-			float: The ``spectral_range_max`` field (in Hz), converted to
-			nanometers and rounded to 2 decimal places. Note that the
-			maximum frequency corresponds to the minimum wavelength.
+			(float): The `spectral_range_max` field (in Hz), converted to
+				nanometers and rounded to 2 decimal places. Note that the
+				maximum frequency corresponds to the minimum wavelength.
 		"""
 		# The spectral_range_max is in Hz and the the wavemin is in nm, so the min in one unit is the max in the other
 		return round(self.hz_to_nm(self.extract_field_value('spectral_range_max')), 2)
@@ -115,9 +115,9 @@ class MetadataFromTapRecord(Metadata):
 		"""Return the maximum wavelength of the observation, in nanometers.
 
 		Returns:
-			float: The ``spectral_range_min`` field (in Hz), converted to
-			nanometers and rounded to 2 decimal places. Note that the
-			minimum frequency corresponds to the maximum wavelength.
+			(float): The `spectral_range_min` field (in Hz), converted to
+				nanometers and rounded to 2 decimal places. Note that the
+				minimum frequency corresponds to the maximum wavelength.
 		"""
 		# The spectral_range_max is in Hz and the the wavemin is in nm, so the min in one unit is the max in the other
 		return round(self.hz_to_nm(self.extract_field_value('spectral_range_min')), 2)
@@ -129,7 +129,7 @@ class MetadataFromTapRecord(Metadata):
 			value (float): Frequency value, in Hz.
 
 		Returns:
-			float: The equivalent wavelength, in nanometers.
+			(float): The equivalent wavelength, in nanometers.
 		"""
 		return (value * astropy.units.Hz).to(astropy.units.nm, equivalencies=astropy.units.spectral()).value
 
@@ -140,6 +140,6 @@ class MetadataFromTapRecord(Metadata):
 			value (float): Date expressed in Julian days.
 
 		Returns:
-			datetime.datetime: The equivalent UTC datetime.
+			(datetime.datetime): The equivalent UTC datetime.
 		"""
 		return astropy.time.Time(value, format='jd').datetime

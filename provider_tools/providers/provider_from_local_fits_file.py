@@ -9,10 +9,10 @@ __all__ = ['ProviderFromLocalFitsFile']
 class ProviderFromLocalFitsFile(Provider):
 	"""Extract the metadata and data_location resource payloads for local FITS files.
 
-	Class attributes:
-		HDU_NAME_OR_INDEX: HDU name or index from which to extract the metadata.
-		METADATA_CLASS: Class used to build the metadata resource.
-		DATA_LOCATION_CLASS: Class used to build the data_location resource.
+	Attributes:
+		HDU_NAME_OR_INDEX (str|int): HDU name or index from which to extract the metadata.
+		METADATA_CLASS (MetadataFromFitsHeader): A subclass of Metadata used to build the metadata resource.
+		DATA_LOCATION_CLASS (DataLocationFromLocalFile): A subclass of DataLocation used to build the data_location resource.
 	"""
 
 	HDU_NAME_OR_INDEX = 0
@@ -29,8 +29,8 @@ class ProviderFromLocalFitsFile(Provider):
 				from and to register as the data location.
 
 		Returns:
-			dict: A resource payload suitable for :meth:`create`, containing
-			both the metadata fields and a nested ``data_location`` payload.
+			(dict): A resource payload containing
+				both the metadata fields and a nested `data_location` payload.
 
 		Raises:
 			Exception: Any error raised while fetching or parsing the FITS

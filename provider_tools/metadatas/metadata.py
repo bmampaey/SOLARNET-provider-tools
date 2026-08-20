@@ -7,10 +7,10 @@ __all__ = ['Metadata']
 class Metadata:
 	"""Base class for building metadata resource payloads.
 
-	Subclasses must implement :meth:`extract_field_value` to define how a
+	Subclasses must implement [`extract_field_value`][provider_tools.metadatas.Metadata.extract_field_value] to define how a
 	field's value is pulled from their particular source data (e.g. a TAP
 	record or a FITS header). Subclasses can optionally define
-	``get_<field_name>`` methods when custom extraction logic
+	`get_<field_name>` methods when custom extraction logic
 	is needed for specific fields.
 	"""
 
@@ -35,9 +35,12 @@ class Metadata:
 		"""Store the keyword definitions used to populate metadata field values.
 
 		Args:
-			keywords (list): Keyword definitions (each a dict with at least
-				``name`` and ``type`` keys) describing the metadata
-				fields to extract.
+			keywords (list[dict]): Keyword definitions describing
+				the metadata fields to extract. Each dictionary requires:
+
+				* **name** `str`: The identifier of the metadata field.
+				* **type** `str`: The data type to cast or validate against.
+
 		"""
 		self.keywords = {keyword['name']: keyword for keyword in keywords}
 
@@ -56,7 +59,7 @@ class Metadata:
 		"""Build the metadata resource payload and validate field value types.
 
 		Returns:
-			dict: The metadata resource payload, keyed by field name.
+			(dict): The metadata resource payload, keyed by field name.
 		"""
 		resource_data = {}
 
@@ -85,8 +88,8 @@ class Metadata:
 			field_name (str): The name of the resource field.
 
 		Returns:
-			The extracted field value. The value is validated separately by
-			:meth:`check_field_value_type`.
+			(Any): The extracted field value. The value is validated separately by
+				[`Metadata.check_field_value_type`][provider_tools.metadatas.Metadata.check_field_value_type].
 
 		Raises:
 			NotImplementedError: Always, unless overridden by a subclass.
@@ -103,10 +106,10 @@ class Metadata:
 		Raises:
 			KeyError: If no keyword correspond to the field name, or if the
 				type is missing in the keyword definition.
-			NotImplementedError: If the keyword's ``type`` is not a known
+			NotImplementedError: If the keyword's `type` is not a known
 				entry in :data:`KEYWORD_TYPE_CHECK`.
-			TypeError: If ``field_value`` is not an instance of the type
-				expected for this keyword. ``None`` is accepted for all fields.
+			TypeError: If `field_value` is not an instance of the type
+				expected for this keyword. `None` is accepted for all fields.
 		"""
 		if field_value is None:
 			return
