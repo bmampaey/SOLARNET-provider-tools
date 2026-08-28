@@ -1,5 +1,3 @@
-import dateutil.parser
-
 from .metadata import Metadata
 
 __all__ = ['MetadataFromFitsHeader']
@@ -13,15 +11,6 @@ class MetadataFromFitsHeader(Metadata):
 	and providing dedicated handling for the observation identifier and
 	the serialized header itself.
 	"""
-
-	# Methods to convert the FITS keywords values to the expected keyword type
-	FIELD_VALUE_CONVERSION = {
-		'text': str,
-		'boolean': bool,
-		'integer': int,
-		'real': float,
-		'time (ISO 8601)': dateutil.parser.parse,
-	}
 
 	def __init__(self, keywords, fits_header):
 		"""Store the keyword definitions and FITS header to extract values from.
@@ -59,15 +48,9 @@ class MetadataFromFitsHeader(Metadata):
 		except KeyError as error:
 			raise ValueError('Keyword %s missing from FITS header' % keyword['verbose_name']) from error
 
-		field_value_conversion = self.FIELD_VALUE_CONVERSION.get(keyword['type'], None)
+		converted_field_value = self.convert_field_value(field_value, keyword['type'])
 
-		if field_value_conversion is not None:
-			try:
-				field_value = field_value_conversion(field_value)
-			except (TypeError, ValueError) as error:
-				raise ValueError('Cannot convert value "%s" to %s' % (field_value, keyword['type'])) from error
-
-		return field_value
+		return converted_field_value
 
 	def get_oid(self):
 		"""Return the observation identifier derived from the FITS header.

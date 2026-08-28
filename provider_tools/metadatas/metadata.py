@@ -1,5 +1,8 @@
 import datetime
+import logging
 import numbers
+
+import dateutil.parser
 
 __all__ = ['Metadata']
 
@@ -13,6 +16,15 @@ class Metadata:
 	`get_<field_name>` methods when custom extraction logic
 	is needed for specific fields.
 	"""
+
+	# Methods to convert the FITS keywords values to the expected keyword type
+	FIELD_VALUE_CONVERSION = {
+		'text': str,
+		'boolean': bool,
+		'integer': int,
+		'real': float,
+		'time (ISO 8601)': dateutil.parser.parse,
+	}
 
 	# Correspondence mapping between the python type of the field value and the keyword type
 	KEYWORD_TYPE_CHECK = {
@@ -63,7 +75,7 @@ class Metadata:
 		"""
 		resource_data = {}
 
-		for field_name in self.keywords:
+		for field_name, keyword in self.keywords.items():
 			# Subclasses may define direct getter for field values
 			# e.g. def get_oid(self) that returns the oid value
 			field_value_getter = getattr(self, 'get_' + field_name, None)
@@ -74,7 +86,16 @@ class Metadata:
 
 			self.check_field_value_type(field_name, field_value)
 
-			resource_data[field_name] = field_value
+			# Some keywords are defined as constant, i.e.e they have a constant value
+			# in that case we must not submit a value for the field
+			if (constant_value := keyword.get('constant_value')) is not None:
+				logging.debug('Skipping field %s which is constant', field_name)
+				if field_value != self.convert_field_value(constant_value, keyword['type']):
+					logging.warning(
+						'Field %s has value %s, which differs from the constant value %s', field_name, field_value, constant_value
+					)
+			else:
+				resource_data[field_name] = field_value
 
 		return resource_data
 
@@ -95,6 +116,32 @@ class Metadata:
 			NotImplementedError: Always, unless overridden by a subclass.
 		"""
 		raise NotImplementedError()
+
+	def convert_field_value(self, field_value, keyword_type):
+		"""Convert a field value to the appropriate keyword type.
+
+		Can be implemented by subclasses to adapt to the way the values
+		are stored in the source data.
+
+		Args:
+			field_value (Any): The value of field to convert.
+			keyword_type (str): the type of the keyword.
+
+		Returns:
+			(Any): The converted field value.
+
+		Raises:
+			ValueError: If the value cannot be converted to the expected type.
+		"""
+		field_value_conversion = self.FIELD_VALUE_CONVERSION.get(keyword_type, None)
+
+		if field_value_conversion is not None:
+			try:
+				converted_field_value = field_value_conversion(field_value)
+			except (TypeError, ValueError) as error:
+				raise ValueError('Cannot convert value "%s" to %s' % (field_value, keyword_type)) from error
+
+		return converted_field_value
 
 	def check_field_value_type(self, field_name, field_value):
 		"""Validate that a field value matches its keyword's expected type.

@@ -1,5 +1,4 @@
 import astropy
-import dateutil.parser
 
 from .metadata import Metadata
 
@@ -14,15 +13,6 @@ class MetadataFromTapRecord(Metadata):
 	and providing dedicated handling for the required fields (identifier,
 	observation dates, and wavelength range).
 	"""
-
-	# Methods to convert the TAP record values to the expected keyword type
-	FIELD_VALUE_CONVERSION = {
-		'text': str,
-		'boolean': bool,
-		'integer': int,
-		'real': float,
-		'time (ISO 8601)': dateutil.parser.parse,
-	}
 
 	def __init__(self, keywords, tap_record):
 		"""Store the keyword definitions and TAP record to extract values from.
@@ -60,15 +50,9 @@ class MetadataFromTapRecord(Metadata):
 		except KeyError as error:
 			raise ValueError('Field %s missing from TAP record' % keyword['verbose_name']) from error
 
-		field_value_conversion = self.FIELD_VALUE_CONVERSION.get(keyword['type'], None)
+		converted_field_value = self.convert_field_value(field_value, keyword['type'])
 
-		if field_value_conversion is not None:
-			try:
-				field_value = field_value_conversion(field_value)
-			except (TypeError, ValueError) as error:
-				raise ValueError('Cannot convert value "%s" to %s' % (field_value, keyword['type'])) from error
-
-		return field_value
+		return converted_field_value
 
 	def get_oid(self):
 		"""Return the unique observation identifier from the TAP record.
