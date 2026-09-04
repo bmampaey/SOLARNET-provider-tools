@@ -472,4 +472,4 @@ if __name__ == '__main__':
 		logging.critical('Fatal error: %s' % error)
 		raise
 	else:
-		logging.info('Wrote keywords definitions to file %s', output_filename)
+		logging.info('Wrote keywords definitions to file %s', args.output)
