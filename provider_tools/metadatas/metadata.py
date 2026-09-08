@@ -79,10 +79,15 @@ class Metadata:
 			# Subclasses may define direct getter for field values
 			# e.g. def get_oid(self) that returns the oid value
 			field_value_getter = getattr(self, 'get_' + field_name, None)
-			if field_value_getter is not None:
-				field_value = field_value_getter()
-			else:
-				field_value = self.extract_field_value(field_name)
+
+			try:
+				if field_value_getter is not None:
+					field_value = field_value_getter()
+				else:
+					field_value = self.extract_field_value(field_name)
+			except (ValueError, KeyError) as error:
+				logging.warning('Could not extract value for field %s : %s', field_name, error)
+				continue
 
 			self.check_field_value_type(field_name, field_value)
 
