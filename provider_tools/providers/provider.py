@@ -32,7 +32,12 @@ class Provider:
 		self.dataset = self.get_dataset(dataset_name)
 		self.keywords = self.get_keywords(dataset_name)
 		# Set up the metadata resource from the URI provided in the dataset info
-		self.metadata_resource = self.api(self.dataset['metadata']['resource_uri'])
+		try:
+			self.metadata_resource = self.api(self.dataset['metadata']['resource_uri'])
+		except TypeError:
+			self.logger.warning(
+				'Metadata resource not defines for dataset %s, it will not be possible to submit of fetch metadata', dataset_name
+			)
 
 	def get_dataset(self, dataset_name):
 		"""Fetch dataset information from the API.

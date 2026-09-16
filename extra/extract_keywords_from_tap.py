@@ -105,7 +105,7 @@ class KeywordInspector:
 				['text', 'boolean', 'integer', 'real', 'time (ISO 8601)'],
 			)
 
-		if keyword_type != 'time (ISO 8601)' and 'time' in column.ucd:
+		if keyword_type != 'time (ISO 8601)' and column.ucd and 'time' in column.ucd:
 			keyword_type = self.resolve_ambiguity(
 				'Column "{column.name}" has ucd "{column.ucd}", select appropriate SVO keyword type\nUnit: {unit}\nSample value: {sample_value}'.format(
 					column=column, unit=self.get_keyword_unit(column), sample_value=sample_value

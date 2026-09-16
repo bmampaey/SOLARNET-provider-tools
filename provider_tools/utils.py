@@ -112,7 +112,9 @@ def iter_urls(base_urls, extension='.fits', min_modification_time=None, timeout=
 					logging.debug('Skipping URL "%s": not a directory of a file with extension "%s"', url, extension)
 
 
-def iter_tap_records(service_url, table_name, max_count=1000, min_modification_time=None, exclude_granule_uid=None):
+def iter_tap_records(
+	service_url, table_name, max_count=1000, min_modification_time=None, exclude_granule_uid=None, where_clause=''
+):
 	"""Iterate over records from a TAP service.
 
 	Args:
@@ -132,9 +134,12 @@ def iter_tap_records(service_url, table_name, max_count=1000, min_modification_t
 		exclude_granule_uid = []
 
 	# If the min_modification_time, add a WHERE clause to exclude older records
-	where_clause = ''
 	if min_modification_time is not None:
-		where_clause += " WHERE modification_date >= '%s'" % min_modification_time.isoformat()
+		if where_clause:
+			where_clause += ' AND '
+		where_clause += "modification_date >= '%s'" % min_modification_time.isoformat()
+	if where_clause:
+		where_clause = 'WHERE ' + where_clause
 
 	# Get the total number of records to process
 	query = 'SELECT count(*) AS record_count FROM %s %s' % (table_name, where_clause)
