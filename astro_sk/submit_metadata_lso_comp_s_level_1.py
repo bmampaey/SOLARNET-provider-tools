@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Script to extract metadata from the AIA level 1.5 archive and submit it to the SOLARNET Virtual Observatory"""
+
+"""Script to extract metadata from the CoMP-S level 1 archive and submit it to the SOLARNET Virtual Observatory"""
 
 import argparse
 import logging
 import sys
-import tarfile
 from pathlib import Path
 
 from astropy.io import fits
@@ -17,12 +17,42 @@ from provider_tools import (
 	RESTfulApi,
 )
 
-# Inside the TAR archive, the script expects the FITS files to have these prefix and suffix, they will be removed from the FITS filename to create the OID
+# These prefix and suffix will be removed from the FITS filename to create the OID
 FITS_FILE_PREFIX = 'lso_comp-s_lev1.0_'
 FITS_FILE_SUFFIX = '.fits.fz'
 
 # Dont change this
-DATASET = 'LSO CoMP-S level 1'
+DATASET = 'CoMP-S level 1'
+
+
+# Define here how to infer the file_url, file_path, thumbnail_url, etc from the fits_file_path
+def get_data_location_from_file_path(fits_file_path):
+	# The subdirectory in the URLs (e.g 20260913) needs to be infered from the fits_file_path
+	# e.g. /home/observer/SVO/data/20260913/lso_comp-s_lev1.0_....fits.fz
+	subdirectory = fits_file_path.resolve().parts[5]  # parts[0] is /, parts[1] is home, parts[5] is 20260913
+
+	# Construct the file_url from the filename and the subdirectory
+	file_url = 'https://lsodb.astro.sk/api/' + subdirectory + '/data/download/' + fits_file_path.name
+	# Get the file size from disk
+	file_size = fits_file_path.stat().st_size
+	# Construct the file_path from the filename and the subdirectory
+	file_path = subdirectory + '/' + fits_file_path.name
+	# Construct the thumbnail_url from the filename and the subdirectory, and change the suffix
+	thumbnail_url = (
+		'https://lsodb.astro.sk/static/CoMP-S_Logs/'
+		+ subdirectory
+		+ '/CoMP-S_obse_previews/'
+		+ fits_file_path.name[: -len(FITS_FILE_SUFFIX)]
+		+ 'wavepoint001_all_frames.png'  # Is this suffix always the same ?
+	)
+
+	return {
+		'file_url': file_url,
+		'file_size': file_size,
+		'file_path': file_path,
+		'thumbnail_url': thumbnail_url,
+		'offline': False,
+	}
 
 
 class Metadata(MetadataFromFitsHeader):
@@ -36,49 +66,59 @@ class Metadata(MetadataFromFitsHeader):
 class Provider(ProviderFromLocalFitsFile):
 	METADATA_CLASS = Metadata
 
-	def __init__(self, *args, data_location=None, **kwargs):
-		super().__init__(*args, **kwargs)
-		self.data_location = data_location or {}
-
 	def get_resource_data(self, item):
-		fits_header, oid = item
+		fits_header, oid, date_location = item
 		metadata = self.METADATA_CLASS(fits_header=fits_header, keywords=self.keywords)
 		resource_data = metadata.get_resource_data()
 		resource_data['oid'] = oid
-		resource_data['data_location'] = self.data_location
+		resource_data['data_location'] = date_location
 		return resource_data
 
 
-# Scan through a tar archive (compressed or not) to extract FITS metadata
-# and yield for each HDU the header and the OID
-def list_items(tar_file_path):
-	with tarfile.open(tar_file_path, 'r:*') as tar:
-		for member in tar.getmembers():
-			fits_file_path = Path(member.name)
-			if not fits_file_path.name.endswith(FITS_FILE_SUFFIX):
-				logging.warning('Skipping TAR file %s because it is not ending with suffix %s', fits_file_path, FITS_FILE_SUFFIX)
+# Scan through a all HDUs of a FITS file
+# and yield for each HDU the header, the OID and the data location
+def list_items(fits_file_path):
+	fits_file_path = Path(fits_file_path)
+
+	if not fits_file_path.name.endswith(FITS_FILE_SUFFIX):
+		logging.warning(
+			'Skipping FITS file %s because it does not end with suffix %s',
+			fits_file_path,
+			FITS_FILE_SUFFIX,
+		)
+		return
+
+	if not fits_file_path.name.startswith(FITS_FILE_PREFIX):
+		logging.warning(
+			'Skipping FITS file %s because it does not start with prefix %s',
+			fits_file_path,
+			FITS_FILE_PREFIX,
+		)
+		return
+
+	data_location = get_data_location_from_file_path(fits_file_path)
+
+	logging.info(
+		'Data location for FITS file %s to\n\t%s',
+		fits_file_path,
+		'\n\t'.join('%s: %s' % item for item in data_location.items()),
+	)
+
+	logging.info('Extracting metadata from FITS file %s', fits_file_path)
+
+	with fits.open(fits_file_path) as hdus:
+		for i, hdu in enumerate(hdus):
+			if 'DATE-BEG' not in hdu.header:
+				logging.warning(
+					'Skipping HDU %s of file %s, it does not contain the required metadata DATE-BEG',
+					i,
+					fits_file_path,
+				)
 				continue
 
-			if not fits_file_path.name.startswith(FITS_FILE_PREFIX):
-				logging.warning('Skipping TAR file %s because it is not starting with prefix %s', fits_file_path, FITS_FILE_PREFIX)
-				continue
+			oid = f'{fits_file_path.name[len(FITS_FILE_PREFIX) : -len(FITS_FILE_SUFFIX)]}_{i}'
 
-			fits_file = tar.extractfile(member)
-
-			if fits_file is None:
-				logging.info('Skipping TAR entry %s, not a regular file', member.name)
-				continue
-
-			logging.info('Extracting metadata from FITS file %s', fits_file_path)
-
-			with fits.open(fits_file) as hdus:
-				for i, hdu in enumerate(hdus):
-					if 'DATE-BEG' not in hdu.header:
-						logging.warning(
-							'Skipping HDU %s of file %s, it does not contain the required metadata DATE-BEG', i, fits_file_path
-						)
-						continue
-					yield hdu.header, f'{fits_file_path.name[len(FITS_FILE_PREFIX) : -len(FITS_FILE_SUFFIX)]}_{i}'
+			yield hdu.header, oid, data_location
 
 
 if __name__ == '__main__':
@@ -112,22 +152,10 @@ if __name__ == '__main__':
 		help='Path to a JSONL file to which the metadata will be written, instead of printed',
 	)
 	parser.add_argument(
-		'tar_file_path',
-		metavar='TAR-ARCHIVE',
+		'fits_file_path',
+		metavar='FITS-FILE',
 		type=Path,
-		help='Path to the TAR archive on disk contaning FITS files to process',
-	)
-	parser.add_argument(
-		'--file-url',
-		metavar='URL',
-		required=True,
-		help='URL to download the TAR archive',
-	)
-	parser.add_argument(
-		'--thumbnail-url',
-		metavar='URL',
-		required=True,
-		help='URL to an image (NOT an HTML page)',
+		help='Path to the FITS file to process',
 	)
 	args = parser.parse_args()
 
@@ -137,27 +165,16 @@ if __name__ == '__main__':
 		format='%(asctime)s %(levelname)-8s: %(message)s',
 	)
 
-	data_location = {
-		'file_url': args.file_url,
-		'file_size': args.tar_file_path.stat().st_size,
-		'file_path': args.tar_file_path.name,
-		'thumbnail_url': args.thumbnail_url,
-		'offline': False,
-	}
-
-	logging.info('Setting data location to\n\t%s', '\n\t'.join('%s: %s' % item for item in data_location.items()))
-
 	try:
 		provider = Provider(
 			RESTfulApi(auth_file=args.auth_file, debug=args.verbose == 'DEBUG'),
 			DATASET,
-			data_location=data_location,
 		)
 	except Exception as error:
 		logging.critical('Could not initialise provider: %s', error)
 		raise
 
-	items = list_items(args.tar_file_path)
+	items = list_items(args.fits_file_path)
 
 	if args.output_file:
 		with open(args.output_file, 'wt') as output_file:
